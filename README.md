@@ -1,5 +1,7 @@
 # Tarifs Électricité pour Home Assistant
 
+🇫🇷 Français · [🇬🇧 English](README.en.md)
+
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
 [![Version](https://img.shields.io/github/v/release/JVmaisGpeur/ha-tarifs-electricite)](https://github.com/JVmaisGpeur/ha-tarifs-electricite/releases)
 [![Validation](https://github.com/JVmaisGpeur/ha-tarifs-electricite/actions/workflows/validate.yml/badge.svg)](https://github.com/JVmaisGpeur/ha-tarifs-electricite/actions/workflows/validate.yml)
@@ -7,13 +9,11 @@
 
 <img src="https://raw.githubusercontent.com/JVmaisGpeur/ha-tarifs-electricite/main/images/icon.png" alt="Icône Tarifs Électricité" width="96" align="right">
 
-Votre contrat d'électricité dans Home Assistant, **quel que soit le fournisseur**. Choisissez votre offre dans la liste (ou décrivez-la), recopiez les prix de votre facture : l'intégration calcule en continu le **prix du kWh en cours**, la **période** (heures pleines, creuses, super creuses, week-end…), les **jours spéciaux** (Tempo, Sobriété, Jour Éclair…) et les **prévisions de prix**. Tout est disponible en capteurs pour le tableau Énergie, les automatisations, les cartes et d'autres intégrations (batteries, recharge de voiture…).
+Votre contrat d'électricité dans Home Assistant, **quel que soit le fournisseur**. Choisissez votre offre dans la liste (ou décrivez-la), recopiez les prix de votre facture : l'intégration calcule en continu le **prix du kWh en cours**, la **période** (heures pleines, creuses, super creuses, week-end…), les **jours spéciaux** (Tempo, Sobriété, Jour Éclair…) et les **prévisions de prix**. Tout est disponible en capteurs pour le tableau Énergie, les automatisations, les cartes et d'autres intégrations (voir [Interface pour les autres intégrations](#interface-pour-les-autres-intégrations)).
 
-Une carte Lovelace est incluse : elle s'installe toute seule avec l'intégration.
+Une carte Lovelace est incluse : elle s'installe toute seule avec l'intégration. Intégration et carte sont en **français et en anglais** : elles suivent la langue de Home Assistant.
 
 ![Aperçu de la carte](https://raw.githubusercontent.com/JVmaisGpeur/ha-tarifs-electricite/main/images/apercu-carte.png)
-
-![Suivi de consommation](https://raw.githubusercontent.com/JVmaisGpeur/ha-tarifs-electricite/main/images/apercu-suivi.png)
 
 ## Installation
 
@@ -27,7 +27,11 @@ Home Assistant 2025.1 ou plus récent (2026.3 ou plus pour voir l'icône de l'in
 4. Choisissez votre offre dans la liste, vérifiez la structure pré-remplie et saisissez vos prix.
 5. Ajoutez la carte *Tarifs Électricité* à un tableau de bord.
 
-Pour changer de prix ou d'offre plus tard : bouton **Configurer** de l'intégration, ou la roue dentée de la carte (voir ci-dessous).
+Pour changer de prix ou d'offre plus tard : bouton **Configurer** de l'intégration, ou la roue dentée de la carte (voir ci-dessous). La puissance souscrite se modifie seule via **Configurer → Puissance souscrite**.
+
+### Installation manuelle
+
+Copiez le dossier `custom_components/tarifs_electricite` dans le dossier `custom_components` de votre configuration, puis redémarrez Home Assistant.
 
 ## Ma consommation : coûts, mensualité, solde
 
@@ -62,10 +66,6 @@ Chaque grille est conservée avec sa date d'effet. La carte montre l'historique 
 
 Les prévisions et le service `previsions` tiennent compte d'une évolution prévue : le créneau le moins cher calculé la veille d'une hausse utilise déjà les bons prix.
 
-### Installation manuelle
-
-Copiez le dossier `custom_components/tarifs_electricite` dans le dossier `custom_components` de votre configuration, puis redémarrez Home Assistant.
-
 ## Offres prêtes à l'emploi
 
 Le modèle pré-remplit la **structure** de l'offre (plages connues, week-end, jours spéciaux, saisons). Les **prix ne sont jamais pré-remplis** : ils changent souvent, recopiez ceux de votre facture ou de la grille tarifaire du fournisseur. Vérifiez toujours la structure proposée.
@@ -91,7 +91,7 @@ Le modèle pré-remplit la **structure** de l'offre (plages connues, week-end, j
 | Prix unique | type **Base** |
 | Heures pleines / creuses, plusieurs plages (`02:00-07:00, 13:00-16:00`) | type **HP/HC** |
 | Heures super creuses | HP/HC, champs facultatifs |
-| Une période nommée en plus (« Heures solaires »…) | HP/HC, champs facultatifs |
+| Une période nommée en plus (« Heures solaires »…), creuse ou non | HP/HC, champs facultatifs |
 | Week-end : comme en semaine, tout en HC, ou **prix week-end dédié** (avec ou sans prix HC week-end) | étape *Calendrier* |
 | Jours fériés : comme en semaine, tout en HC, ou comme le week-end (calcul automatique, Alsace-Moselle en option) | étape *Calendrier* |
 | Jours de semaine au tarif week-end (lundi, mercredi…) | étape *Calendrier* |
@@ -113,10 +113,12 @@ Identifiants identiques sur toutes les installations :
 
 | Entité | Contenu |
 |---|---|
+| `sensor.tarif_electricite_offre` | type d'offre : `base`, `hphc`, `tempo` ou `dynamique`. Attributs : `fournisseur`, `nom_offre` |
+| `sensor.tarif_electricite_puissance_souscrite` | puissance souscrite en kVA (`unknown` si non renseignée) |
 | `sensor.tarif_electricite_prix_actuel` | Prix du kWh en ce moment (EUR/kWh). Attributs : période, libellé, jour spécial, prochain changement, min/max sur 24 h, grille, `previsions` (tranches des 48 h à venir) |
 | `sensor.tarif_electricite_periode` | `hp`, `hc`, `hsc` (super creuses), `perso` (période nommée), `we`, `we_hc` (week-end), `base` ou `dyn` (prix dynamique) |
-| `sensor.tarif_electricite_prochain_changement` / `_prochain_prix` | quand le prix change, et le prix suivant |
-| `binary_sensor.tarif_electricite_heures_creuses` | `on` en heures creuses, super creuses, période nommée et week-end creuses |
+| `sensor.tarif_electricite_prochain_changement` / `_prochain_prix` | quand le prix change, et le prix suivant (`unknown` si le prix ne change jamais, ex. Base sans option) |
+| `binary_sensor.tarif_electricite_heures_creuses` | `on` en heures creuses, super creuses, week-end creuses, et période nommée si elle est déclarée creuse |
 | `binary_sensor.tarif_electricite_heures_super_creuses` | si l'offre en a |
 | `binary_sensor.tarif_electricite_prix_bas` | `on` quand le prix est dans le tiers le moins cher des 24 h à venir — **marche avec toutes les offres**, y compris le prix dynamique |
 | `binary_sensor.tarif_electricite_jour_special` | `on` pendant un jour spécial |
@@ -141,26 +143,24 @@ response_variable: tarifs
 
 ## Exemples d'automatisations
 
-Charger une batterie quand le prix est bas (toutes offres) :
+Lancer le chauffe-eau quand le prix est bas (toutes offres) :
 
 ```yaml
-alias: Batteries – charge quand le prix est bas
+alias: Chauffe-eau – marche quand le prix est bas
 triggers:
   - trigger: state
     entity_id: binary_sensor.tarif_electricite_prix_bas
     to: "on"
 actions:
-  - action: select.select_option
+  - action: switch.turn_on
     target:
-      entity_id: select.zendure_mode   # adaptez à votre entité
-    data:
-      option: Puissance manuelle
+      entity_id: switch.chauffe_eau   # adaptez à votre entité
 ```
 
-Planifier une charge de 3 h au moment le moins cher des 24 prochaines heures :
+Planifier une recharge de 3 h au moment le moins cher des 24 prochaines heures :
 
 ```yaml
-alias: Batteries – planifier la charge la moins chère
+alias: Recharge – planifier au moins cher
 triggers:
   - trigger: time
     at: "18:00:00"
@@ -169,7 +169,7 @@ actions:
     data: { heures: 24, duree: 3 }
     response_variable: tarifs
   - action: input_datetime.set_datetime
-    target: { entity_id: input_datetime.debut_charge_batteries }
+    target: { entity_id: input_datetime.debut_recharge }
     data:
       datetime: "{{ tarifs.meilleur_creneau.debut }}"
 ```
@@ -186,6 +186,116 @@ actions:
     data:
       message: "Demain : {{ trigger.to_state.state }}. Pensez à décaler vos consommations."
 ```
+
+## Interface pour les autres intégrations
+
+> 🇬🇧 English version below.
+
+D'autres intégrations peuvent s'appuyer sur Tarifs Électricité, par exemple pour piloter des batteries de stockage ou une recharge selon les prix à venir. Elles passent **uniquement** par les entités et le service décrits ici : jamais par le code interne.
+
+**Version d'interface : 1** (depuis la 1.1.0). Elle figure dans la réponse du service (`version_interface`).
+
+### Retrouver les entités
+
+Par le registre des entités de Home Assistant, avec l'`entry_id` du contrat et la `translation_key` ci-dessous — **pas** par l'`entity_id`, que l'utilisateur peut renommer. L'`unique_id` vaut `<entry_id>_<translation_key>`.
+
+| translation_key | Plateforme | État / unité | Présente |
+|---|---|---|---|
+| `puissance_souscrite` | sensor | kVA (entier) ou `unknown` | toujours |
+| `offre` | sensor (enum) | `base`, `hphc`, `tempo`, `dynamique` | toujours |
+| `prix_actuel` | sensor | EUR/kWh | toujours |
+| `periode` | sensor (enum) | `hp`, `hc`, `hsc`, `perso`, `we`, `we_hc`, `base`, `dyn` | toujours |
+| `prochain_changement` | sensor (timestamp) | date-heure du prochain changement de prix ; `unknown` si le prix ne change jamais | toujours |
+| `prochain_prix` | sensor | EUR/kWh ; `unknown` si le prix ne change jamais | toujours |
+| `heures_creuses` | binary_sensor | `on` en heures creuses (week-ends et fériés compris selon le contrat) | offres HP/HC et Tempo |
+| `heures_super_creuses` | binary_sensor | `on` en heures super creuses | si l'offre en a |
+| `prix_bas` | binary_sensor | `on` si le prix est dans le tiers bas des 24 h à venir | toujours |
+| `tempo_aujourdhui`, `tempo_demain` | sensor (enum) | `bleu`, `blanc`, `rouge` | offres Tempo |
+| `tempo_previsions` | sensor (enum) | couleur d'après-demain ; attribut `previsions` | offres Tempo |
+
+Les **attributs** des entités (grille, historique, suivi…) ne font **pas** partie du contrat : ils peuvent changer librement.
+
+### Service `tarifs_electricite.previsions` (réponse uniquement)
+
+Entrées : `config_entry_id` (facultatif, sinon le premier contrat), `heures` (1 à 72, défaut 24), `duree` (facultatif, en heures).
+
+Réponse :
+
+| Champ | Contenu |
+|---|---|
+| `version_interface` | `1` |
+| `fournisseur`, `offre` | fournisseur et **nom commercial** de l'offre, tels que saisis |
+| `type_offre` | `base`, `hphc`, `tempo` ou `dynamique` |
+| `puissance_kva` | entier, ou `null` |
+| `segments` | tranches successives, du moment de l'appel jusqu'à l'horizon demandé, sans trou ni chevauchement |
+| `moins_cher`, `plus_cher` | segment au prix connu le plus bas / le plus haut (absents si aucun prix connu) |
+| `meilleur_creneau` | si `duree` est donnée : `{debut, fin, prix_moyen}` du créneau continu le moins cher, ou `null` |
+
+Attention au mot « offre » : l'état du **capteur** `offre` est le type d'offre (`base`, `hphc`, `tempo`, `dynamique`), comme le champ `type_offre` du service ; le **champ** `offre` du service est le nom commercial saisi, comme l'attribut `nom_offre` du capteur.
+
+Chaque segment :
+
+| Champ | Contenu |
+|---|---|
+| `debut`, `fin` | ISO 8601 avec fuseau horaire |
+| `periode` | mêmes valeurs que le capteur `periode` (minuscules) |
+| `libelle` | texte lisible (ex. « Heures creuses · Sobriété ») |
+| `prix` | EUR/kWh, ou **`null` si inconnu** : couleur Tempo pas encore annoncée, prix dynamique pas publié. Jamais de prix deviné |
+| `couleur` | `bleu`, `blanc`, `rouge`, ou `null` (offre non Tempo, ou couleur inconnue) |
+| `saison` | `hiver`, `ete`, ou `null` (offre sans saisons) |
+| `jour_special` | nom du jour spécial (ex. `Sobriété`), ou `null` |
+| `jour_special_confirme` | `false` si le type de ce jour n'est pas encore connu (demain non annoncé, après-demain) : le prix affiché est celui d'un jour normal. Toujours `true` pour une offre sans jours spéciaux |
+| `heures_creuses` | `true` en HC, HSC, week-end HC, et période nommée déclarée creuse. Toujours `false` en Base et en prix dynamique (utilisez `prix`, ou `prix_bas`) |
+
+Pour se protéger au pire cas : traiter un `prix: null` comme le prix le plus élevé possible, et un `jour_special_confirme: false` comme un jour spécial possible ; recalculer quand `tempo_demain` ou le sélecteur de jour spécial de demain change.
+
+### Règles de version
+
+| Changement | Version |
+|---|---|
+| Renommer ou supprimer une entité, une `translation_key`, une valeur d'enum, un champ du service | majeure (2.0.0) et `version_interface` + 1 |
+| Changer une unité ou le sens d'une valeur | majeure (2.0.0) et `version_interface` + 1 |
+| Ajouter une entité, une valeur d'enum, un champ du service | mineure (1.x.0) |
+| Correction sans effet sur le contrat | correctif (1.1.x) |
+
+- Un élément appelé à disparaître est d'abord annoncé obsolète dans le CHANGELOG et ce README pendant au moins une version mineure.
+- Une nouvelle valeur d'enum est annoncée dans le CHANGELOG : un consommateur doit traiter une valeur inconnue comme « non gérée », sans planter.
+- Le CHANGELOG a une rubrique « Interface » à chaque version qui la touche.
+- Les tests `tests/test_interface.py` vérifient ce contrat à chaque modification.
+
+### 🇬🇧 Interface for other integrations
+
+Other integrations may rely on Tarifs Électricité, for example to drive storage batteries or EV charging from upcoming prices. They must use **only** the entities and the service below, never the internal code.
+
+**Interface version: 1** (since 1.1.0), returned by the service as `version_interface`.
+
+**Finding entities** — through Home Assistant's entity registry, using the contract's `entry_id` and the `translation_key` (not the `entity_id`, which users may rename). `unique_id` is `<entry_id>_<translation_key>`.
+
+| translation_key | Platform | State / unit | Present |
+|---|---|---|---|
+| `puissance_souscrite` | sensor | subscribed power, kVA (integer) or `unknown` | always |
+| `offre` | sensor (enum) | offer type: `base`, `hphc`, `tempo`, `dynamique` | always |
+| `prix_actuel` | sensor | current price, EUR/kWh | always |
+| `periode` | sensor (enum) | `hp` peak, `hc` off-peak, `hsc` super off-peak, `perso` named period, `we`/`we_hc` weekend, `base`, `dyn` dynamic | always |
+| `prochain_changement` | sensor (timestamp) | next price change; `unknown` if the price never changes | always |
+| `prochain_prix` | sensor | next price, EUR/kWh; `unknown` if the price never changes | always |
+| `heures_creuses` | binary_sensor | `on` during off-peak hours (weekends and bank holidays included per contract) | peak/off-peak and Tempo offers |
+| `heures_super_creuses` | binary_sensor | `on` during super off-peak hours | if the offer has them |
+| `prix_bas` | binary_sensor | `on` when the price is in the cheapest third of the next 24 h | always |
+| `tempo_aujourdhui`, `tempo_demain` | sensor (enum) | Tempo colour today / tomorrow: `bleu` blue, `blanc` white, `rouge` red | Tempo offers |
+| `tempo_previsions` | sensor (enum) | colour for the day after tomorrow; `previsions` attribute | Tempo offers |
+
+Entity **attributes** (price grid, history, consumption…) are **not** part of the contract.
+
+**Service `tarifs_electricite.previsions`** (response only). Inputs: `config_entry_id` (optional, defaults to the first contract), `heures` (hours ahead, 1–72, default 24), `duree` (optional slot length in hours). Response: `version_interface`, `fournisseur` (supplier), `offre` (commercial offer name), `type_offre`, `puissance_kva` (integer or `null`), `segments`, and when applicable `moins_cher` / `plus_cher` (cheapest / most expensive segment with a known price) and `meilleur_creneau` (`{debut, fin, prix_moyen}`: cheapest continuous slot of `duree` hours).
+
+Note on “offre”: the `offre` **sensor** state is the offer type (same as the service's `type_offre`); the service's `offre` **field** is the commercial name (same as the sensor's `nom_offre` attribute).
+
+Segments are contiguous, from the call time to the requested horizon. Each has: `debut`/`fin` (ISO 8601 with offset), `periode` (lowercase, as above), `libelle` (label), `prix` (EUR/kWh, or **`null` when unknown**: Tempo colour not yet announced, dynamic price not yet published — never a guessed price), `couleur` (Tempo colour or `null`), `saison` (`hiver` winter, `ete` summer, or `null`), `jour_special` (special day name or `null`), `jour_special_confirme` (`false` when that day's type is not known yet; the normal-day price is shown; always `true` for offers without special days), `heures_creuses` (`true` for off-peak, super off-peak, weekend off-peak and named periods declared off-peak; always `false` for flat and dynamic offers).
+
+Worst-case strategy: treat `prix: null` as the highest possible price and `jour_special_confirme: false` as a possible special day; recompute when `tempo_demain` or tomorrow's special-day selector changes.
+
+**Versioning** — renaming/removing an entity, `translation_key`, enum value or service field, or changing a unit or meaning: major version (2.0.0) and `version_interface` + 1. Adding an entity, enum value or service field: minor (1.x.0). Fixes without contract impact: patch (1.1.x). Anything to be removed is first announced as deprecated in the CHANGELOG and README for at least one minor version. Consumers must treat unknown enum values as "unsupported" without failing. The CHANGELOG has an "Interface" section for every version that touches it.
 
 ## Carte
 
@@ -215,6 +325,8 @@ python3 tests/test_tariff.py        # moteur de calcul
 python3 tests/test_suivi.py         # coûts, mensualité, solde
 python3 tests/test_gestionnaire.py  # jours spéciaux, sources, prix dynamique, évolutions datées, suivi (HA simulé)
 python3 tests/test_config_flow.py   # tous les écrans de configuration (HA simulé)
+python3 tests/test_interface.py     # contrat d'interface (entités, service previsions)
+python3 tests/test_traductions.py   # français et anglais complets
 ```
 
 ## Contribuer

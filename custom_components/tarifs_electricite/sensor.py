@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .entity import EntiteTarif
-from .tariff import COULEURS, PERIODES
+from .tariff import COULEURS, OFFRES, PERIODES
 
 UNITE_PRIX = "EUR/kWh"
 
@@ -21,6 +21,8 @@ async def async_setup_entry(
 ) -> None:
     g = hass.data[DOMAIN][entry.entry_id]
     entites: list[SensorEntity] = [
+        CapteurOffre(g),
+        CapteurPuissanceSouscrite(g),
         CapteurPrixActuel(g),
         CapteurPeriode(g),
         CapteurProchainChangement(g),
@@ -347,3 +349,37 @@ class CapteurProchaineFacture(_CapteurSuivi):
 
         d = (self._suivi().get("facture") or {}).get("prochaine_facture")
         return date.fromisoformat(d) if d else None
+
+
+# ---------------------------------------------------------------- contrat
+class CapteurOffre(EntiteTarif, SensorEntity):
+    """Type d'offre en vigueur : base, hphc, tempo ou dynamique."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(OFFRES)
+    _attr_icon = "mdi:file-certificate-outline"
+
+    def __init__(self, g) -> None:
+        super().__init__(g, "offre", "sensor")
+
+    @property
+    def native_value(self):
+        return self.g.tarif.type_offre
+
+    @property
+    def extra_state_attributes(self):
+        return {"fournisseur": self.g.tarif.fournisseur, "nom_offre": self.g.tarif.offre}
+
+
+class CapteurPuissanceSouscrite(EntiteTarif, SensorEntity):
+    """Puissance souscrite (kVA) ; inconnue si elle n'est pas renseignée."""
+
+    _attr_native_unit_of_measurement = "kVA"
+    _attr_icon = "mdi:meter-electric-outline"
+
+    def __init__(self, g) -> None:
+        super().__init__(g, "puissance_souscrite", "sensor")
+
+    @property
+    def native_value(self):
+        return self.g.puissance_kva

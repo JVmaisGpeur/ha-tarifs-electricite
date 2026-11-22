@@ -151,6 +151,9 @@ def estimation_annuelle(
             "ecart_pct": round(ecart / mensualite_fournisseur * 100, 1),
             "regularisation_annuelle_estimee": round(ecart * prelevements_par_an, 2),
             "conseil": conseil_mensualite(ecart, mensualite_fournisseur, fiab),
+            # Code stable (la carte rédige le conseil dans la langue de l'utilisateur)
+            "conseil_code": ("ok" if abs(ecart / mensualite_fournisseur * 100) <= 5
+                             else "trop_basse" if ecart > 0 else "trop_haute"),
         })
     return res
 

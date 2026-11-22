@@ -44,11 +44,11 @@ from .const import (
     TEMPO_INTERVALLE_MIN,
     URL_CARTE,
     VERSION,
+    VERSION_INTERFACE,
 )
 from .tariff import (
     OFFRE_DYN,
     OFFRE_TEMPO,
-    PERIODES_CREUSES,
     Contexte,
     Tarif,
     TarifVersionne,
@@ -169,6 +169,17 @@ class GestionnaireTarif:
             elif jour_iso == jd.isoformat():
                 self.js_manuel["aujourdhui"] = valeur
 
+    def _special_confirme(self, jour) -> bool:
+        """Le type de ce jour est-il connu ? Aujourd'hui oui ; demain s'il a été
+        annoncé (source automatique ou choix « jour spécial ») ; au-delà, non."""
+        if self.js_jour is None:
+            return False
+        if jour <= self.js_jour:
+            return True
+        if jour == self.js_jour + timedelta(days=1):
+            return self.est_auto("demain") or self.js_manuel["demain"] != NORMAL
+        return False
+
     def _special_de(self, jour):
         if self.js_jour is None:
             return None
@@ -209,6 +220,7 @@ class GestionnaireTarif:
         return Contexte(
             couleur_de=self.tempo.couleur if self.tempo else None,
             special_de=self._special_de if self.noms_speciaux else None,
+            special_confirme_de=self._special_confirme if self.noms_speciaux else None,
             prix_dyn_de=self._prix_dyn_de if OFFRE_DYN in self.tarifs.types_offre else None,
         )
 
@@ -267,6 +279,38 @@ class GestionnaireTarif:
             self._annuler_prochain = None
 
     # ------------------------------------------------------------------ calcul
+    @property
+    def puissance_kva(self) -> Optional[int]:
+        """Puissance souscrite (kVA) de la grille en vigueur, ou None."""
+        valeur = self.tarif.cfg.get("puissance_kva")
+        try:
+            return int(round(float(valeur))) if valeur not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    def reponse_previsions(self, heures: int, duree: Optional[float] = None) -> dict[str, Any]:
+        """Réponse du service `previsions` (contrat d'interface, version VERSION_INTERFACE)."""
+        segments = []
+        for s in self.previsions(heures):
+            seg = dict(s)
+            seg["periode"] = s["periode"].lower()
+            segments.append(seg)
+        reponse: dict[str, Any] = {
+            "version_interface": VERSION_INTERFACE,
+            "fournisseur": self.tarif.fournisseur,
+            "offre": self.tarif.offre,  # nom commercial
+            "type_offre": self.tarif.type_offre,
+            "puissance_kva": self.puissance_kva,
+            "segments": segments,
+        }
+        connus = [s for s in segments if s["prix"] is not None]
+        if connus:
+            reponse["moins_cher"] = min(connus, key=lambda s: s["prix"])
+            reponse["plus_cher"] = max(connus, key=lambda s: s["prix"])
+        if duree:
+            reponse["meilleur_creneau"] = meilleur_creneau(segments, duree)
+        return reponse
+
     def previsions(self, heures: int) -> list[dict]:
         if OFFRE_DYN in self.tarifs.types_offre:
             self._lire_dynamique()
@@ -323,11 +367,11 @@ class GestionnaireTarif:
             "offre": t.offre,
             "type_offre": t.type_offre,
             "abonnement_mensuel": t.abonnement,
-            "puissance_kva": self.cfg.get("puissance_kva"),
+            "puissance_kva": self.puissance_kva,
             "prix": instant.prix,
             "periode": instant.periode,
             "periode_libelle": instant.libelle,
-            "heures_creuses": instant.periode in PERIODES_CREUSES,
+            "heures_creuses": instant.creuse,
             "heures_super_creuses": instant.periode == "HSC",
             "prix_bas": prix_bas,
             "saison": instant.saison,
@@ -400,27 +444,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def _service_previsions(call: ServiceCall) -> ServiceResponse:
         gestionnaires: dict[str, GestionnaireTarif] = hass.data.get(DOMAIN, {})
         if not gestionnaires:
-            raise ServiceValidationError("Aucun contrat Tarifs Électricité configuré")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="aucun_contrat"
+            )
         entry_id = call.data.get("config_entry_id")
         if entry_id:
             if entry_id not in gestionnaires:
-                raise ServiceValidationError(f"Contrat inconnu : {entry_id}")
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="contrat_inconnu",
+                    translation_placeholders={"entry_id": entry_id},
+                )
             g = gestionnaires[entry_id]
         else:
             g = next(iter(gestionnaires.values()))
-        segments = g.previsions(call.data["heures"])
-        reponse: dict[str, Any] = {
-            "fournisseur": g.tarif.fournisseur,
-            "offre": g.tarif.offre,
-            "segments": segments,
-        }
-        connus = [s for s in segments if s["prix"] is not None]
-        if connus:
-            reponse["moins_cher"] = min(connus, key=lambda s: s["prix"])
-            reponse["plus_cher"] = max(connus, key=lambda s: s["prix"])
-        if call.data.get("duree"):
-            reponse["meilleur_creneau"] = meilleur_creneau(segments, call.data["duree"])
-        return reponse
+        return g.reponse_previsions(call.data["heures"], call.data.get("duree"))
 
     hass.services.async_register(
         DOMAIN,

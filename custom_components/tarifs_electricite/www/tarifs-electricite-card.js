@@ -1,8 +1,9 @@
 /*
- * Carte « Tarifs Électricité » — servie automatiquement par l'intégration.
- * type: custom:tarifs-electricite-card
+ * Carte « Tarifs Électricité » / "Tarifs Électricité" card
+ * Servie automatiquement par l'intégration. type: custom:tarifs-electricite-card
+ * Français si Home Assistant est en français, anglais sinon.
  */
-const VERSION_CARTE = "1.0.0";
+const VERSION_CARTE = "1.1.0";
 
 const COULEURS_PERIODE = {
   HP: "#f57c00",
@@ -14,63 +15,263 @@ const COULEURS_PERIODE = {
   WE_HC: "#558b2f",
 };
 const COULEURS_TEMPO = { bleu: "#1e88e5", blanc: "#eceff1", rouge: "#e53935" };
-const NOMS_PERIODE = {
-  HP: "Heures pleines",
-  HC: "Heures creuses",
-  HSC: "Heures super creuses",
-  BASE: "Base",
-  PERSO: "Période spéciale",
-  WE: "Week-end",
-  WE_HC: "Week-end heures creuses",
-  DYN: "Prix dynamique",
+
+// ------------------------------------------------------------------ textes
+const TEXTES = {
+  fr: {
+    periode: {
+      HP: "Heures pleines", HC: "Heures creuses", HSC: "Heures super creuses", BASE: "Base",
+      PERSO: "Période spéciale", WE: "Week-end", WE_HC: "Week-end heures creuses", DYN: "Prix dynamique",
+    },
+    colonne: { HP: "HP", HC: "HC", HSC: "HSC", BASE: "Base" },
+    ligne: { annee: "Toute l'année", hiver: "Hiver", ete: "Été", weekend: "Week-end", abonnement: "Abonnement" },
+    tempo: { bleu: "Bleu", blanc: "Blanc", rouge: "Rouge" },
+    jourTempo: (c) => (c ? `Jour ${c}` : "Jour inconnu"),
+    maintenant: "maintenant",
+    dans: (j, h, m) => (j ? `dans ${j} j ${h} h` : h ? `dans ${h} h ${String(m).padStart(2, "0")}` : `dans ${m} min`),
+    a: "à",
+    origine: "Origine",
+    aujourdhuiCourt: "Auj.",
+    demainCourt: "Dem.",
+    maint: "maint.",
+    heureCourte: (h) => `${h}h`,
+    prixBas: "Prix bas",
+    titreDefaut: "Tarif électricité",
+    reglages: "Modifier le contrat",
+    entiteIntrouvable: (e) => `Entité introuvable : ${e}<br>Ajoutez d'abord l'intégration « Tarifs Électricité ».`,
+    minmax: (mn, mx) => `24 h : min ${mn} · max ${mx} €/kWh`,
+    evolution: (d) => `Nouveaux prix le <b>${d}</b>`,
+    enMoyenne: "en moyenne",
+    prochaines: (h) => `Prochaines ${h} h`,
+    joursSpeciaux: "Jours spéciaux",
+    aujourdhui: "Aujourd'hui",
+    demain: "Demain",
+    normal: "Normal",
+    jsAuto: "Suivi automatiquement depuis la source",
+    jsAppui: "Appuyez pour changer",
+    journee: (h) => `Journée de ${h} h à ${h} h`,
+    dynSansPrevision: "La source ne publie pas les prix à venir : seule l'heure en cours est connue.",
+    couleursTempo: "Couleurs Tempo",
+    tempoIndispo: "Couleurs Tempo indisponibles pour le moment.",
+    inconnue: "inconnue",
+    officielle: "officielle",
+    prevision: "prévision",
+    legendeTempo: "Plein : couleur officielle · Pointillé : prévision",
+    grille: "Grille tarifaire (€/kWh TTC)",
+    marche: (src) => `Prix fixé heure par heure par le marché${src ? ` (source : ${src})` : ""}.`,
+    abonnement: (v, kva) => `Abonnement : ${v} €/mois${kva ? ` · ${kva} kVA` : ""}`,
+    puissance: (kva) => `Puissance souscrite : ${kva} kVA`,
+    maConso: "Ma consommation",
+    calcul: "Calcul en cours…",
+    pasDeDonnees: "Aucune statistique pour ce compteur : il doit avoir une classe d'état total ou total_increasing et au moins une heure d'historique.",
+    indispo: "Données indisponibles.",
+    semaine: "Semaine",
+    mois: "Mois",
+    annee: "Année",
+    detailTuile: (e, a) => `Énergie ${e} € + abonnement ${a} €`,
+    tousMontants: (v) => `Tous les montants comprennent l'abonnement (${v} €/mois), au prorata de la période.`,
+    dontAbo: (v) => `dont abonnement ${v} €`,
+    factureEnCours: "Facture en cours",
+    depuisLe: (d) => `depuis le ${d}`,
+    estimeeAu: (d) => `Estimée au ${d}`,
+    dansJours: (n) => `dans ${n} j`,
+    projection: (n, v) => `Projection d'après les ${n} derniers jours (${v} €/jour hors abonnement).`,
+    coutAnnuel: "Coût annuel estimé",
+    fiabilite: { bonne: "fiable", moyenne: "fiabilité moyenne", faible: "peu fiable" },
+    parFacture: (v, abo, freq, kwh, j, extra) =>
+      `Soit ≈ ${v} € par facture${abo ? " (abonnement compris)" : ""} (${freq}) · ${kwh} kWh/an, d'après ${j} jours${extra ? " extrapolés sur un an" : ""}`,
+    frequence: { 1: "tous les mois", 2: "tous les 2 mois", 3: "tous les 3 mois", 6: "tous les 6 mois", 12: "une fois par an" },
+    estimationInsuffisante: "Estimation annuelle : il faut au moins 14 jours de consommation.",
+    mensualiteEstimee: "Mensualité estimée",
+    prelevements: (n, f) => `${n} prélèvements, ${f}`,
+    aboParPrelevement: (v) => `abonnement compris (${v} € par prélèvement)`,
+    prelevee: "Prélevée par le fournisseur",
+    ecart: "Écart",
+    parMois: "€/mois",
+    conseil: (code, ecart, fiab) => {
+      const prudence = fiab === "bonne" ? "" : " (estimation encore peu fiable : moins d'un an de données)";
+      if (code === "ok") return `Votre mensualité correspond à votre consommation.${prudence}`;
+      if (code === "trop_basse")
+        return `Votre mensualité semble trop basse d'environ ${Math.round(ecart)} €/mois : attendez-vous à une facture de régularisation, ou demandez à l'augmenter.${prudence}`;
+      return `Votre mensualité semble trop élevée d'environ ${Math.round(-ecart)} €/mois : vous pouvez demander à votre fournisseur de la baisser.${prudence}`;
+    },
+    dapres: (j, extra, kwh, an) =>
+      `D'après ${j} jours de consommation${extra ? " (extrapolés sur un an)" : ""} · ${kwh} kWh/an · ${an} €/an`,
+    mensualiteInsuffisante: (n) => `Mensualité : il faut au moins 14 jours de consommation (${n} pour l'instant).`,
+    solde: (d, p, c) => `Depuis le ${d} : payé ≈ ${p} €, consommé ${c} €`,
+    enAvance: "Vous êtes en avance : remboursement probable.",
+    enRetard: "Vous êtes en retard : régularisation probable.",
+    incomplet: " Historique du compteur incomplet sur la période.",
+    corriges: (n) => `${n} relevé(s) aberrant(s) du compteur ignoré(s) (saut d'index).`,
+    statut: { en_cours: "En cours", prevue: "Prévue", passee: "Passée" },
+    aPartirDu: (d) => `À partir du ${d}`,
+    grilleOrigine: "Grille d'origine",
+    aucunPrix: "Aucun prix modifié",
+    historique: (n) => `Historique des prix (${n} grilles)`,
+    editeur: {
+      entity: "Capteur « Prix actuel » du contrat",
+      titre: "Titre (par défaut : fournisseur · offre)",
+      heures: "Durée de la frise",
+      afficher_frise: "Afficher la frise des prochaines heures",
+      afficher_tempo: "Afficher les couleurs Tempo (offres Tempo)",
+      afficher_grille: "Afficher la grille tarifaire",
+      afficher_historique: "Afficher l'historique des prix",
+      afficher_suivi: "Afficher ma consommation (coûts, mensualité)",
+    },
+  },
+  en: {
+    periode: {
+      HP: "Peak hours", HC: "Off-peak hours", HSC: "Super off-peak", BASE: "Flat rate",
+      PERSO: "Special period", WE: "Weekend", WE_HC: "Weekend off-peak", DYN: "Dynamic price",
+    },
+    colonne: { HP: "Peak", HC: "Off-peak", HSC: "Super off-peak", BASE: "Flat" },
+    ligne: { annee: "All year", hiver: "Winter", ete: "Summer", weekend: "Weekend", abonnement: "Standing charge" },
+    tempo: { bleu: "Blue", blanc: "White", rouge: "Red" },
+    jourTempo: (c) => (c ? `${{ bleu: "Blue", blanc: "White", rouge: "Red" }[c] || c} day` : "Unknown day"),
+    maintenant: "now",
+    dans: (j, h, m) => (j ? `in ${j} d ${h} h` : h ? `in ${h} h ${String(m).padStart(2, "0")}` : `in ${m} min`),
+    a: "at",
+    origine: "Origin",
+    aujourdhuiCourt: "Today",
+    demainCourt: "Tmrw",
+    maint: "now",
+    heureCourte: (h) => `${h}:00`,
+    prixBas: "Low price",
+    titreDefaut: "Electricity rate",
+    reglages: "Edit contract",
+    entiteIntrouvable: (e) => `Entity not found: ${e}<br>Add the “Tarifs Électricité” integration first.`,
+    minmax: (mn, mx) => `24 h: min ${mn} · max ${mx} €/kWh`,
+    evolution: (d) => `New prices from <b>${d}</b>`,
+    enMoyenne: "on average",
+    prochaines: (h) => `Next ${h} h`,
+    joursSpeciaux: "Special days",
+    aujourdhui: "Today",
+    demain: "Tomorrow",
+    normal: "Normal",
+    jsAuto: "Followed automatically from the source",
+    jsAppui: "Tap to change",
+    journee: (h) => `Day runs from ${h}:00 to ${h}:00`,
+    dynSansPrevision: "The source does not publish upcoming prices: only the current hour is known.",
+    couleursTempo: "Tempo colours",
+    tempoIndispo: "Tempo colours are not available right now.",
+    inconnue: "unknown",
+    officielle: "official",
+    prevision: "forecast",
+    legendeTempo: "Solid: official colour · Dashed: forecast",
+    grille: "Price grid (€/kWh incl. tax)",
+    marche: (src) => `Price set hour by hour by the market${src ? ` (source: ${src})` : ""}.`,
+    abonnement: (v, kva) => `Standing charge: ${v} €/month${kva ? ` · ${kva} kVA` : ""}`,
+    puissance: (kva) => `Subscribed power: ${kva} kVA`,
+    maConso: "My consumption",
+    calcul: "Calculating…",
+    pasDeDonnees: "No statistics for this meter: it needs a total or total_increasing state class and at least one hour of history.",
+    indispo: "Data unavailable.",
+    semaine: "Week",
+    mois: "Month",
+    annee: "Year",
+    detailTuile: (e, a) => `Energy ${e} € + standing charge ${a} €`,
+    tousMontants: (v) => `All amounts include the standing charge (${v} €/month), pro rata.`,
+    dontAbo: (v) => `incl. standing charge ${v} €`,
+    factureEnCours: "Current bill",
+    depuisLe: (d) => `since ${d}`,
+    estimeeAu: (d) => `Estimated on ${d}`,
+    dansJours: (n) => `in ${n} d`,
+    projection: (n, v) => `Projected from the last ${n} days (${v} €/day excl. standing charge).`,
+    coutAnnuel: "Estimated yearly cost",
+    fiabilite: { bonne: "reliable", moyenne: "fair reliability", faible: "low reliability" },
+    parFacture: (v, abo, freq, kwh, j, extra) =>
+      `About ${v} € per bill${abo ? " (standing charge incl.)" : ""} (${freq}) · ${kwh} kWh/year, from ${j} days${extra ? " extrapolated to a year" : ""}`,
+    frequence: { 1: "monthly", 2: "every 2 months", 3: "every 3 months", 6: "every 6 months", 12: "yearly" },
+    estimationInsuffisante: "Yearly estimate: at least 14 days of consumption are needed.",
+    mensualiteEstimee: "Estimated instalment",
+    prelevements: (n, f) => `${n} payments, ${f}`,
+    aboParPrelevement: (v) => `standing charge incl. (${v} € per payment)`,
+    prelevee: "Charged by the supplier",
+    ecart: "Difference",
+    parMois: "€/month",
+    conseil: (code, ecart, fiab) => {
+      const prudence = fiab === "bonne" ? "" : " (estimate not yet reliable: less than a year of data)";
+      if (code === "ok") return `Your instalment matches your consumption.${prudence}`;
+      if (code === "trop_basse")
+        return `Your instalment looks about ${Math.round(ecart)} €/month too low: expect a balancing bill, or ask to raise it.${prudence}`;
+      return `Your instalment looks about ${Math.round(-ecart)} €/month too high: you can ask your supplier to lower it.${prudence}`;
+    },
+    dapres: (j, extra, kwh, an) =>
+      `From ${j} days of consumption${extra ? " (extrapolated to a year)" : ""} · ${kwh} kWh/year · ${an} €/year`,
+    mensualiteInsuffisante: (n) => `Instalment: at least 14 days of consumption are needed (${n} so far).`,
+    solde: (d, p, c) => `Since ${d}: paid ≈ ${p} €, used ${c} €`,
+    enAvance: "You are ahead: a refund is likely.",
+    enRetard: "You are behind: a balancing bill is likely.",
+    incomplet: " Meter history is incomplete for this period.",
+    corriges: (n) => `${n} abnormal meter reading(s) ignored (index jump).`,
+    statut: { en_cours: "Current", prevue: "Upcoming", passee: "Past" },
+    aPartirDu: (d) => `From ${d}`,
+    grilleOrigine: "Original grid",
+    aucunPrix: "No price changed",
+    historique: (n) => `Price history (${n} grids)`,
+    editeur: {
+      entity: "Contract's “Current price” sensor",
+      titre: "Title (default: supplier · offer)",
+      heures: "Timeline length",
+      afficher_frise: "Show the upcoming hours timeline",
+      afficher_tempo: "Show Tempo colours (Tempo offers)",
+      afficher_grille: "Show the price grid",
+      afficher_historique: "Show price history",
+      afficher_suivi: "Show my consumption (costs, bills)",
+    },
+  },
 };
+
+function langue(hass) {
+  const l = (hass?.locale?.language || hass?.language || navigator.language || "en").toLowerCase();
+  return l.startsWith("fr") ? "fr" : "en";
+}
+
+/** Formats et textes dans la langue de l'utilisateur. */
+function outils(hass) {
+  const code = langue(hass);
+  const T = TEXTES[code];
+  const loc = hass?.locale?.language || (code === "fr" ? "fr-FR" : "en-GB");
+  const euro = (v, d = 4) =>
+    v === null || v === undefined || isNaN(v)
+      ? "—"
+      : Number(v).toLocaleString(loc, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const nombre = (v, d = 0) => Number(v ?? 0).toLocaleString(loc, { maximumFractionDigits: d });
+  const heure = (iso) => new Date(iso).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
+  const date = (iso) => {
+    if (!iso) return T.origine;
+    const txt = new Date(iso + "T12:00:00").toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+    return code === "fr" ? txt.replace(/^1 /, "1er ") : txt;
+  };
+  const pct = (v) =>
+    v === null || v === undefined ? "" : `${v > 0 ? "+" : ""}${Number(v).toLocaleString(loc)} %`;
+  const dans = (iso) => {
+    const ms = new Date(iso) - new Date();
+    if (ms <= 0) return T.maintenant;
+    const min = Math.round(ms / 60000);
+    return T.dans(Math.floor(min / 1440), Math.floor((min % 1440) / 60), min % 60);
+  };
+  const jourCourt = (iso) => {
+    const d = new Date(iso + "T12:00:00");
+    const auj = new Date();
+    auj.setHours(12, 0, 0, 0);
+    const ecart = Math.round((d - auj) / 86400000);
+    if (ecart === 0) return T.aujourdhuiCourt;
+    if (ecart === 1) return T.demainCourt;
+    return d.toLocaleDateString(loc, { weekday: "short", day: "numeric" });
+  };
+  return { code, T, euro, nombre, heure, date, pct, dans, jourCourt };
+}
 
 // Vert → orange → rouge selon la place du prix entre min et max
 function couleurPrix(prix, min, max) {
   if (prix === null || prix === undefined) return "var(--disabled-text-color, #bbb)";
   const r = max > min ? Math.min(1, Math.max(0, (prix - min) / (max - min))) : 0.5;
-  const teinte = 120 - 120 * r;
-  return `hsl(${teinte}, 65%, 45%)`;
-}
-const NOMS_SAISON = { hiver: "Hiver", ete: "Été", annee: "Toute l'année" };
-
-const euro = (v, d = 4) =>
-  v === null || v === undefined || isNaN(v)
-    ? "—"
-    : Number(v).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
-
-const heure = (iso) =>
-  new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-
-function dans(iso) {
-  const ms = new Date(iso) - new Date();
-  if (ms <= 0) return "maintenant";
-  const min = Math.round(ms / 60000);
-  const j = Math.floor(min / 1440);
-  const h = Math.floor((min % 1440) / 60);
-  const m = min % 60;
-  if (j) return `dans ${j} j ${h} h`;
-  if (h) return `dans ${h} h ${String(m).padStart(2, "0")}`;
-  return `dans ${m} min`;
+  return `hsl(${120 - 120 * r}, 65%, 45%)`;
 }
 
-const dateFr = (iso) =>
-  iso
-    ? new Date(iso + "T12:00:00")
-        .toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
-        .replace(/^1 /, "1er ")
-    : "Origine";
-const pct = (v) => (v === null || v === undefined ? "" : `${v > 0 ? "+" : ""}${v.toLocaleString("fr-FR")} %`);
-
-function jourCourt(iso) {
-  const d = new Date(iso + "T12:00:00");
-  const auj = new Date();
-  auj.setHours(12, 0, 0, 0);
-  const ecart = Math.round((d - auj) / 86400000);
-  if (ecart === 0) return "Auj.";
-  if (ecart === 1) return "Dem.";
-  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric" });
-}
+const echapper = (t) =>
+  String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 class TarifsElectriciteCard extends HTMLElement {
   static getConfigElement() {
@@ -100,9 +301,10 @@ class TarifsElectriciteCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const changementLangue = langue(hass) !== langue(this._hass);
     this._hass = hass;
     const st = hass.states[this._config?.entity];
-    if (st !== this._dernier) {
+    if (st !== this._dernier || changementLangue) {
       this._dernier = st;
       this._rendu();
     }
@@ -139,7 +341,18 @@ class TarifsElectriciteCard extends HTMLElement {
     );
   }
 
-  _frise(previsions) {
+  /** Nom de période traduit, avec le nom personnalisé et le jour spécial. */
+  _periode(o, a, periode, jourSpecial) {
+    let nom = o.T.periode[periode] || periode || "—";
+    if (periode === "PERSO") {
+      const perso = (a.grille?.colonnes || []).find((c) => c.cle === "PERSO")?.nom;
+      if (perso) nom = perso;
+    }
+    return jourSpecial ? `${nom} · ${jourSpecial}` : nom;
+  }
+
+  _frise(o, a) {
+    const previsions = a.previsions;
     const heures = Number(this._config.heures) || 24;
     if (!previsions?.length) return "";
     const debut = new Date(previsions[0].debut);
@@ -167,8 +380,9 @@ class TarifsElectriciteCard extends HTMLElement {
         } else if (s.periode !== "BASE" && s.prix === null) {
           fond = "var(--disabled-text-color, #bbb)";
         }
-        const titre = `${s.libelle || NOMS_PERIODE[s.periode] || s.periode}${s.couleur ? " " + s.couleur : ""} · ${heure(s.debut)} → ${heure(s.fin)} · ${euro(s.prix)} €/kWh`;
-        return `<div class="bloc" style="width:${largeur}%;background:${fond};${bord}" title="${titre}"></div>`;
+        const couleur = s.couleur ? ` ${o.T.tempo[s.couleur] || s.couleur}` : "";
+        const titre = `${this._periode(o, a, s.periode, s.jour_special)}${couleur} · ${o.heure(s.debut)} → ${o.heure(s.fin)} · ${o.euro(s.prix)} €/kWh`;
+        return `<div class="bloc" style="width:${largeur}%;background:${fond};${bord}" title="${echapper(titre)}"></div>`;
       })
       .join("");
     const pas = heures > 24 ? 12 : 6;
@@ -179,49 +393,55 @@ class TarifsElectriciteCard extends HTMLElement {
     for (let t = premier; t < fin; t = new Date(t.getTime() + pas * 3600000)) {
       const pos = ((t - debut) / total) * 100;
       if (pos < 12 || pos > 96) continue;
-      reperes += `<span class="repere" style="left:${pos}%">${t.getHours()}h</span>`;
+      reperes += `<span class="repere" style="left:${pos}%">${o.T.heureCourte(t.getHours())}</span>`;
     }
-    return `<div class="frise">${blocs}</div><div class="reperes"><span class="repere" style="left:0;transform:none">maint.</span>${reperes}</div>`;
+    return `<div class="frise">${blocs}</div><div class="reperes"><span class="repere" style="left:0;transform:none">${o.T.maint}</span>${reperes}</div>`;
   }
 
-  _tempo(a) {
+  _tempo(o, a) {
     const prev = a.tempo_previsions || [];
-    if (!prev.length) {
-      return `<div class="tempo vide">Couleurs Tempo indisponibles pour le moment.</div>`;
-    }
+    if (!prev.length) return `<div class="tempo vide">${o.T.tempoIndispo}</div>`;
     return `<div class="tempo">${prev
       .slice(0, 9)
       .map((p) => {
         let c = COULEURS_TEMPO[p.couleur] || "transparent";
         if (!p.confirmee && p.couleur === "blanc") c = "#90a4ae";
         const classe = p.confirmee ? "pastille" : "pastille prevue";
-        return `<div class="jour"><span>${jourCourt(p.date)}</span><div class="${classe}" style="--c:${c}" title="${p.couleur || "inconnue"}${p.confirmee ? " (officielle)" : " (prévision)"}"></div></div>`;
+        const titre = `${o.T.tempo[p.couleur] || o.T.inconnue} (${p.confirmee ? o.T.officielle : o.T.prevision})`;
+        return `<div class="jour"><span>${o.jourCourt(p.date)}</span><div class="${classe}" style="--c:${c}" title="${titre}"></div></div>`;
       })
       .join("")}</div>
-      <div class="legende">Plein : couleur officielle · Pointillé : prévision</div>`;
+      <div class="legende">${o.T.legendeTempo}</div>`;
   }
 
-  _grille(a) {
+  /** Nom d'une ligne de grille (saison, week-end, couleur Tempo, ou jour spécial saisi). */
+  _ligne(o, l) {
+    if (COULEURS_TEMPO[l.code || l.libelle]) return o.T.tempo[l.code || l.libelle];
+    if (l.code && o.T.ligne[l.code]) return o.T.ligne[l.code];
+    return l.libelle;
+  }
+
+  _grille(o, a) {
     const g = a.grille || {};
     const lignes = g.lignes || [];
     const cols = g.colonnes || [];
     if (!lignes.length) {
-      if (a.type_offre === "dynamique")
-        return `<div class="discret">Prix fixé heure par heure par le marché${a.source_prix ? ` (source : ${a.source_prix})` : ""}.</div>`;
-      return "";
+      return a.type_offre === "dynamique" ? `<div class="discret">${o.T.marche(a.source_prix)}</div>` : "";
     }
-    const entete = cols.map((c) => `<th>${c.nom}</th>`).join("");
+    const nomCol = (c) => (c.cle === "PERSO" ? echapper(c.nom) : o.T.colonne[c.cle] || c.cle);
+    const entete = cols.map((c) => `<th>${nomCol(c)}</th>`).join("");
     const corps = lignes
       .map((l) => {
-        let lib = l.libelle;
-        if (COULEURS_TEMPO[l.libelle])
-          lib = `<span class="puce" style="--c:${COULEURS_TEMPO[l.libelle]}"></span>${l.libelle[0].toUpperCase()}${l.libelle.slice(1)}`;
-        else if (l.special) lib = `<ha-icon class="petite" icon="mdi:calendar-alert"></ha-icon>${l.libelle}`;
+        const nom = echapper(this._ligne(o, l));
+        const code = l.code || l.libelle;
+        let lib = nom;
+        if (COULEURS_TEMPO[code]) lib = `<span class="puce" style="--c:${COULEURS_TEMPO[code]}"></span>${nom}`;
+        else if (l.special) lib = `<ha-icon class="petite" icon="mdi:calendar-alert"></ha-icon>${nom}`;
         let actif;
-        if (a.couleur_tempo) actif = l.libelle === a.couleur_tempo;
+        if (a.couleur_tempo) actif = code === a.couleur_tempo;
         else if (a.jour_special) actif = l.libelle === a.jour_special;
-        else if (a.periode === "WE" || a.periode === "WE_HC") actif = l.libelle === "Week-end";
-        else if (a.saison) actif = l.libelle.toLowerCase().startsWith(a.saison === "ete" ? "ét" : "hiv");
+        else if (a.periode === "WE" || a.periode === "WE_HC") actif = code === "weekend" || l.libelle === "Week-end";
+        else if (a.saison) actif = code === a.saison;
         else actif = lignes.indexOf(l) === 0;
         const periodeCol =
           a.periode === "WE" ? (cols.some((c) => c.cle === "HP") ? "HP" : "BASE")
@@ -229,7 +449,7 @@ class TarifsElectriciteCard extends HTMLElement {
         const cellules = cols
           .map((c) => {
             const surligne = actif && c.cle === periodeCol ? ' class="actif"' : "";
-            return `<td${surligne}>${l.prix[c.cle] === undefined ? "" : euro(l.prix[c.cle])}</td>`;
+            return `<td${surligne}>${l.prix[c.cle] === undefined ? "" : o.euro(l.prix[c.cle])}</td>`;
           })
           .join("");
         return `<tr><td class="lib">${lib}</td>${cellules}</tr>`;
@@ -237,123 +457,129 @@ class TarifsElectriciteCard extends HTMLElement {
       .join("");
     const abo =
       a.abonnement_mensuel != null
-        ? `<div class="abo">Abonnement : ${euro(a.abonnement_mensuel, 2)} €/mois${a.puissance_kva ? ` · ${a.puissance_kva} kVA` : ""}</div>`
-        : "";
+        ? `<div class="abo">${o.T.abonnement(o.euro(a.abonnement_mensuel, 2), a.puissance_kva)}</div>`
+        : a.puissance_kva
+          ? `<div class="abo">${o.T.puissance(a.puissance_kva)}</div>`
+          : "";
     return `<table><thead><tr><th></th>${entete}</tr></thead><tbody>${corps}</tbody></table>${abo}`;
   }
 
-  _suivi(a) {
+  _suivi(o, a) {
     const s = a.suivi;
     if (!s) return "";
+    const { T, euro, nombre, date } = o;
     // L'abonnement est compté dans tous les montants : on le dit, et combien
     const avecAbo = a.abonnement_mensuel != null && a.abonnement_mensuel > 0;
-    const dont = (v) => (avecAbo && v != null ? `<div class="dont">dont abonnement ${euro(v, 2)} €</div>` : "");
+    const dont = (v) => (avecAbo && v != null ? `<div class="dont">${T.dontAbo(euro(v, 2))}</div>` : "");
     if (s.etat !== "ok") {
-      const msg = s.etat === "en_attente" ? "Calcul en cours…" : s.message || "Données indisponibles.";
-      return `<div class="section"><h4>Ma consommation</h4><div class="discret">${msg}</div></div>`;
+      const msg = s.etat === "en_attente" ? T.calcul : s.etat === "pas_de_donnees" ? T.pasDeDonnees : T.indispo;
+      return `<div class="section"><h4>${T.maConso}</h4><div class="discret">${msg}</div></div>`;
     }
     const tuile = (cle, titre) => {
       const p = s[cle] || {};
-      const detail = avecAbo ? ` title="Énergie ${euro(p.cout_energie, 2)} € + abonnement ${euro(p.cout_abonnement, 2)} €"` : "";
+      const detail = avecAbo ? ` title="${T.detailTuile(euro(p.cout_energie, 2), euro(p.cout_abonnement, 2))}"` : "";
       return `<div class="tuile"${detail}><span class="t-titre">${titre}</span><span class="t-val">${euro(p.total, 2)} €</span>
-        <span class="t-kwh">${(p.kwh ?? 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} kWh</span></div>`;
+        <span class="t-kwh">${nombre(p.kwh, 1)} kWh</span></div>`;
     };
     const e = s.estimation || {};
+    const fiab = T.fiabilite[e.fiabilite] || e.fiabilite;
     let mensu = "";
     if (s.mode_paiement === "conso_reelle") {
       const f = s.facture;
-      const FREQ = { 1: "tous les mois", 2: "tous les 2 mois", 3: "tous les 3 mois", 6: "tous les 6 mois", 12: "une fois par an" };
       if (f) {
         mensu += `<div class="mensualite">
-          <div class="m-ligne"><span>Facture en cours <span class="discret">(depuis le ${dateFr(f.debut)})</span></span><b>${euro(f.montant_actuel, 2)} €</b></div>
+          <div class="m-ligne"><span>${T.factureEnCours} <span class="discret">(${T.depuisLe(date(f.debut))})</span></span><b>${euro(f.montant_actuel, 2)} €</b></div>
           ${dont(f.abonnement_actuel)}
-          <div class="m-ligne"><span>Estimée au ${dateFr(f.prochaine_facture)} <span class="discret">(dans ${Math.ceil(f.jours_restants)} j)</span></span><b>≈ ${euro(f.montant_estime, 2)} €</b></div>
+          <div class="m-ligne"><span>${T.estimeeAu(date(f.prochaine_facture))} <span class="discret">(${T.dansJours(Math.ceil(f.jours_restants))})</span></span><b>≈ ${euro(f.montant_estime, 2)} €</b></div>
           ${dont(f.abonnement_estime)}
-          <div class="legende">Projection d'après les ${Math.min(14, Math.ceil(f.jours_ecoules))} derniers jours (${euro(f.cout_moyen_par_jour, 2)} €/jour hors abonnement).</div>
+          <div class="legende">${T.projection(Math.min(14, Math.ceil(f.jours_ecoules)), euro(f.cout_moyen_par_jour, 2))}</div>
         </div>`;
       }
       if (e.cout_annuel_estime != null) {
-        mensu += `<div class="m-ligne" style="margin-top:8px"><span>Coût annuel estimé <span class="discret">(${({ bonne: "fiable", moyenne: "fiabilité moyenne", faible: "peu fiable" })[e.fiabilite] || e.fiabilite})</span></span><b>${euro(e.cout_annuel_estime, 2)} €</b></div>
+        mensu += `<div class="m-ligne" style="margin-top:8px"><span>${T.coutAnnuel} <span class="discret">(${fiab})</span></span><b>${euro(e.cout_annuel_estime, 2)} €</b></div>
           ${dont(e.cout_abonnement_annuel)}
-          <div class="legende">Soit ≈ ${euro(e.facture_moyenne_estimee, 2)} € par facture${avecAbo ? " (abonnement compris)" : ""} (${FREQ[s.frequence_mois] || ""}) · ${(e.consommation_annuelle_kwh ?? 0).toLocaleString("fr-FR")} kWh/an, d'après ${e.jours_de_donnees} jours${e.extrapole ? " extrapolés sur un an" : ""}</div>`;
+          <div class="legende">${T.parFacture(euro(e.facture_moyenne_estimee, 2), avecAbo, T.frequence[s.frequence_mois] || "", nombre(e.consommation_annuelle_kwh), e.jours_de_donnees, e.extrapole)}</div>`;
       } else if (e.fiabilite === "insuffisante") {
-        mensu += `<div class="legende">Estimation annuelle : il faut au moins 14 jours de consommation.</div>`;
+        mensu += `<div class="legende">${T.estimationInsuffisante}</div>`;
       }
     } else if (e.mensualite_estimee != null) {
-      const fiab = { bonne: "fiable", moyenne: "fiabilité moyenne", faible: "peu fiable" }[e.fiabilite] || e.fiabilite;
       let ecart = "";
       if (e.mensualite_fournisseur != null) {
         const cls = Math.abs(e.ecart_pct) <= 5 ? "ok" : e.ecart_mensuel > 0 ? "hausse" : "baisse";
-        ecart = `<div class="m-ligne"><span>Prélevée par le fournisseur</span><span>${euro(e.mensualite_fournisseur, 2)} €</span></div>
-          <div class="m-ligne"><span>Écart</span><span class="${cls}">${e.ecart_mensuel > 0 ? "+" : ""}${euro(e.ecart_mensuel, 2)} €/mois (${pct(e.ecart_pct)})</span></div>
-          <div class="conseil">${e.conseil}</div>`;
+        const code = e.conseil_code || (Math.abs(e.ecart_pct) <= 5 ? "ok" : e.ecart_mensuel > 0 ? "trop_basse" : "trop_haute");
+        ecart = `<div class="m-ligne"><span>${T.prelevee}</span><span>${euro(e.mensualite_fournisseur, 2)} €</span></div>
+          <div class="m-ligne"><span>${T.ecart}</span><span class="${cls}">${e.ecart_mensuel > 0 ? "+" : ""}${euro(e.ecart_mensuel, 2)} ${T.parMois} (${o.pct(e.ecart_pct)})</span></div>
+          <div class="conseil">${T.conseil(code, e.ecart_mensuel, e.fiabilite)}</div>`;
       }
       mensu = `<div class="mensualite">
-        <div class="m-ligne"><span>Mensualité estimée <span class="discret">(${e.prelevements_par_an} prélèvements, ${fiab})</span></span><b>${euro(e.mensualite_estimee, 2)} €</b></div>
-        ${avecAbo ? `<div class="dont">abonnement compris (${euro(e.cout_abonnement_annuel / e.prelevements_par_an, 2)} € par prélèvement)</div>` : ""}
+        <div class="m-ligne"><span>${T.mensualiteEstimee} <span class="discret">(${T.prelevements(e.prelevements_par_an, fiab)})</span></span><b>${euro(e.mensualite_estimee, 2)} €</b></div>
+        ${avecAbo ? `<div class="dont">${T.aboParPrelevement(euro(e.cout_abonnement_annuel / e.prelevements_par_an, 2))}</div>` : ""}
         ${ecart}
-        <div class="legende">D'après ${e.jours_de_donnees} jours de consommation${e.extrapole ? " (extrapolés sur un an)" : ""} · ${(e.consommation_annuelle_kwh ?? 0).toLocaleString("fr-FR")} kWh/an · ${euro(e.cout_annuel_estime, 2)} €/an</div>
+        <div class="legende">${T.dapres(e.jours_de_donnees, e.extrapole, nombre(e.consommation_annuelle_kwh), euro(e.cout_annuel_estime, 2))}</div>
       </div>`;
     } else if (e.fiabilite === "insuffisante") {
-      mensu = `<div class="legende">Mensualité : il faut au moins 14 jours de consommation (${e.jours_de_donnees || 0} pour l'instant).</div>`;
+      mensu = `<div class="legende">${T.mensualiteInsuffisante(e.jours_de_donnees || 0)}</div>`;
     }
     let solde = "";
     if (s.solde) {
       const v = s.solde.solde;
-      solde = `<div class="m-ligne solde"><span>Depuis le ${dateFr(s.solde.depuis)} : payé ≈ ${euro(s.solde.paye_estime, 2)} €, consommé ${euro(s.solde.consomme, 2)} €</span>
+      solde = `<div class="m-ligne solde"><span>${T.solde(date(s.solde.depuis), euro(s.solde.paye_estime, 2), euro(s.solde.consomme, 2))}</span>
         <span class="${v >= 0 ? "baisse" : "hausse"}">${v >= 0 ? "+" : ""}${euro(v, 2)} €</span></div>
-        <div class="legende">${v >= 0 ? "Vous êtes en avance : remboursement probable." : "Vous êtes en retard : régularisation probable."}${s.solde.donnees_completes ? "" : " Historique du compteur incomplet sur la période."}</div>`;
+        <div class="legende">${v >= 0 ? T.enAvance : T.enRetard}${s.solde.donnees_completes ? "" : T.incomplet}</div>`;
     }
-    const corrige = s.heures_corrigees
-      ? `<div class="legende">${s.heures_corrigees} relevé(s) aberrant(s) du compteur ignoré(s) (saut d'index).</div>`
-      : "";
-    return `<div class="section"><h4>Ma consommation</h4>
-      <div class="tuiles">${tuile("aujourdhui", "Aujourd'hui")}${tuile("semaine", "Semaine")}${tuile("mois", "Mois")}${tuile("annee", "Année")}</div>
-      ${avecAbo ? `<div class="legende">Tous les montants comprennent l'abonnement (${euro(a.abonnement_mensuel, 2)} €/mois), au prorata de la période.</div>` : ""}
+    const corrige = s.heures_corrigees ? `<div class="legende">${T.corriges(s.heures_corrigees)}</div>` : "";
+    return `<div class="section"><h4>${T.maConso}</h4>
+      <div class="tuiles">${tuile("aujourdhui", T.aujourdhui)}${tuile("semaine", T.semaine)}${tuile("mois", T.mois)}${tuile("annee", T.annee)}</div>
+      ${avecAbo ? `<div class="legende">${T.tousMontants(euro(a.abonnement_mensuel, 2))}</div>` : ""}
       ${mensu}${solde}${corrige}</div>`;
   }
 
-  _historique(a) {
+  _historique(o, a) {
     const h = a.historique_prix || [];
     if (h.length < 2) return "";
-    const NOMS = { en_cours: "En cours", prevue: "Prévue", passee: "Passée" };
+    const { T, euro, pct, date } = o;
     const lignes = h
       .slice()
       .reverse()
       .map((v) => {
         const vars = (v.variations || [])
           .map((x) => {
-            const col = (a.grille?.colonnes || []).find((c) => c.cle === x.cle)?.nom || x.cle;
-            const lib = x.libelle === "Abonnement" ? "Abonnement" : `${x.libelle === "Toute l'année" ? "" : x.libelle + " "}${col}`;
-            const d = x.libelle === "Abonnement" ? 2 : 4;
-            return `<div class="var"><span>${lib}</span><span>${euro(x.avant, d)} → <b>${euro(x.apres, d)}</b> <span class="${x.variation_pct > 0 ? "hausse" : "baisse"}">${pct(x.variation_pct)}</span></span></div>`;
+            const abo = x.code === "abonnement" || x.libelle === "Abonnement";
+            const colonne = (a.grille?.colonnes || []).find((c) => c.cle === x.cle);
+            const col = colonne ? (colonne.cle === "PERSO" ? colonne.nom : T.colonne[colonne.cle] || colonne.cle) : x.cle;
+            const ligne = this._ligne(o, x);
+            const lib = abo ? T.ligne.abonnement : `${x.code === "annee" || x.libelle === "Toute l'année" ? "" : ligne + " "}${col}`;
+            const d = abo ? 2 : 4;
+            return `<div class="var"><span>${echapper(lib)}</span><span>${euro(x.avant, d)} → <b>${euro(x.apres, d)}</b> <span class="${x.variation_pct > 0 ? "hausse" : "baisse"}">${pct(x.variation_pct)}</span></span></div>`;
           })
           .join("");
-        const offre = v.offre !== a.offre ? `<div class="discret">${v.fournisseur} – ${v.offre}</div>` : "";
+        const offre = v.offre !== a.offre ? `<div class="discret">${echapper(v.fournisseur)} – ${echapper(v.offre)}</div>` : "";
         return `<div class="version ${v.statut}">
-          <div class="v-tete"><b>${v.date_effet ? "À partir du " + dateFr(v.date_effet) : "Grille d'origine"}</b>
-          <span class="statut">${NOMS[v.statut]}</span></div>${offre}
-          ${vars || (v.date_effet ? '<div class="discret">Aucun prix modifié</div>' : "")}</div>`;
+          <div class="v-tete"><b>${v.date_effet ? T.aPartirDu(date(v.date_effet)) : T.grilleOrigine}</b>
+          <span class="statut">${T.statut[v.statut]}</span></div>${offre}
+          ${vars || (v.date_effet ? `<div class="discret">${T.aucunPrix}</div>` : "")}</div>`;
       })
       .join("");
-    return `<details class="historique"${this._histOuvert ? " open" : ""}><summary>Historique des prix (${h.length} grilles)</summary>${lignes}</details>`;
+    return `<details class="historique"${this._histOuvert ? " open" : ""}><summary>${T.historique(h.length)}</summary>${lignes}</details>`;
   }
 
-  _joursSpeciaux(a) {
+  _joursSpeciaux(o, a) {
     const js = a.jours_speciaux;
     if (!js) return "";
+    const { T } = o;
     const puce = (quand, titre) => {
       const val = js[quand];
       const auto = js[`auto_${quand}`];
       const special = val && val !== "Normal";
+      const affiche = special ? echapper(val) : T.normal;
       return `<div class="js ${special ? "special" : ""} ${auto ? "auto" : ""}" data-quand="${quand}"
-        title="${auto ? "Suivi automatiquement depuis la source" : "Appuyez pour changer"}">
+        title="${auto ? T.jsAuto : T.jsAppui}">
         <span class="js-titre">${titre}</span>
-        <span class="js-val">${special ? "⚠ " : ""}${val}${auto ? ' <ha-icon class="petite" icon="mdi:link-variant"></ha-icon>' : ""}</span>
+        <span class="js-val">${special ? "⚠ " : ""}${affiche}${auto ? ' <ha-icon class="petite" icon="mdi:link-variant"></ha-icon>' : ""}</span>
       </div>`;
     };
-    const debut = js.debut_h ? `<div class="legende">Journée de ${js.debut_h} h à ${js.debut_h} h</div>` : "";
-    return `<div class="js-ligne">${puce("aujourdhui", "Aujourd'hui")}${puce("demain", "Demain")}</div>${debut}`;
+    const debut = js.debut_h ? `<div class="legende">${T.journee(js.debut_h)}</div>` : "";
+    return `<div class="js-ligne">${puce("aujourdhui", T.aujourdhui)}${puce("demain", T.demain)}</div>${debut}`;
   }
 
   _changerJour(quand) {
@@ -370,9 +596,11 @@ class TarifsElectriciteCard extends HTMLElement {
   _rendu() {
     if (!this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const o = outils(this._hass);
+    const { T, euro } = o;
     const st = this._hass?.states[this._config.entity];
     if (!st) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="contenu">Entité introuvable : ${this._config.entity}<br>Ajoutez d'abord l'intégration « Tarifs Électricité ».</div></ha-card>`;
+      this.shadowRoot.innerHTML = `<ha-card><div class="contenu">${T.entiteIntrouvable(echapper(this._config.entity))}</div></ha-card>`;
       return;
     }
     const a = st.attributes;
@@ -384,25 +612,30 @@ class TarifsElectriciteCard extends HTMLElement {
     const titre = this._config.titre || [a.fournisseur, a.offre].filter(Boolean).join(" · ");
     const estTempo = a.type_offre === "tempo";
 
-    let badgeTempo = "";
-    if (estTempo) {
-      const c = a.couleur_tempo;
-      badgeTempo = `<span class="badge tempo-badge" style="--c:${COULEURS_TEMPO[c] || "#999"}">Jour ${c || "inconnu"}</span>`;
-    }
+    const badgeTempo = estTempo
+      ? `<span class="badge tempo-badge" style="--c:${COULEURS_TEMPO[a.couleur_tempo] || "#999"}">${T.jourTempo(a.couleur_tempo && (o.code === "fr" ? a.couleur_tempo : a.couleur_tempo))}</span>`
+      : "";
 
     let prochain = "";
     if (a.prochain_changement) {
+      // Le jour spécial éventuel figure après « · » dans le libellé calculé
+      const special = (a.prochaine_periode_libelle || "").split(" · ")[1];
       prochain = `<div class="prochain">
         <ha-icon icon="mdi:arrow-right-circle-outline"></ha-icon>
-        <span><b>${a.prochaine_periode_libelle || NOMS_PERIODE[a.prochaine_periode] || a.prochaine_periode || ""}</b> à ${heure(a.prochain_changement)}
-        <span class="discret">(${dans(a.prochain_changement)})</span> · ${euro(a.prochain_prix)} €/kWh</span></div>`;
+        <span><b>${echapper(a.prochaine_periode ? this._periode(o, a, a.prochaine_periode, special) : a.prochaine_periode_libelle || "")}</b> ${T.a} ${o.heure(a.prochain_changement)}
+        <span class="discret">(${o.dans(a.prochain_changement)})</span> · ${euro(a.prochain_prix)} €/kWh</span></div>`;
     }
 
     // Min/max : seulement pour le prix dynamique
     const minmax =
       a.type_offre === "dynamique" && a.prix_min_24h != null
-        ? `<div class="minmax">24 h : min ${euro(a.prix_min_24h)} · max ${euro(a.prix_max_24h)} €/kWh</div>`
+        ? `<div class="minmax">${T.minmax(euro(a.prix_min_24h), euro(a.prix_max_24h))}</div>`
         : "";
+
+    const evo = a.evolution_prevue;
+    const evolution = evo
+      ? `<div class="evolution"><ha-icon icon="mdi:calendar-arrow-right"></ha-icon><span>${T.evolution(o.date(evo.date_effet))}${evo.variation_moyenne_pct != null ? ` · <span class="${evo.variation_moyenne_pct > 0 ? "hausse" : "baisse"}">${o.pct(evo.variation_moyenne_pct)}</span> ${T.enMoyenne}` : ""}</span></div>`
+      : "";
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -474,26 +707,26 @@ class TarifsElectriciteCard extends HTMLElement {
       <ha-card>
         <div class="entete">
           <ha-icon icon="mdi:lightning-bolt"></ha-icon>
-          <div class="titre">${titre || "Tarif électricité"}</div>
-          <ha-icon class="reglages" icon="mdi:cog-outline" title="Modifier le contrat"></ha-icon>
+          <div class="titre">${echapper(titre || T.titreDefaut)}</div>
+          <ha-icon class="reglages" icon="mdi:cog-outline" title="${T.reglages}"></ha-icon>
         </div>
         <div class="contenu">
           <div class="principal">
             <div class="prix">${euro(prix)}<span class="unite">€/kWh</span></div>
-            <span class="badge" style="--c:${couleurPeriode}">${a.periode_libelle || NOMS_PERIODE[periode] || periode || "—"}</span>
+            <span class="badge" style="--c:${couleurPeriode}">${echapper(this._periode(o, a, periode, a.jour_special))}</span>
             ${badgeTempo}
-            ${a.prix_bas ? '<span class="badge bas">Prix bas</span>' : ""}
+            ${a.prix_bas ? `<span class="badge bas">${T.prixBas}</span>` : ""}
           </div>
           ${prochain}
           ${minmax}
-          ${a.evolution_prevue ? `<div class="evolution"><ha-icon icon="mdi:calendar-arrow-right"></ha-icon><span>Nouveaux prix le <b>${dateFr(a.evolution_prevue.date_effet)}</b>${a.evolution_prevue.variation_moyenne_pct != null ? ` · <span class="${a.evolution_prevue.variation_moyenne_pct > 0 ? "hausse" : "baisse"}">${pct(a.evolution_prevue.variation_moyenne_pct)}</span> en moyenne` : ""}</span></div>` : ""}
-          ${this._config.afficher_frise ? `<div class="section"><h4>Prochaines ${this._config.heures} h</h4>${this._frise(a.previsions)}</div>` : ""}
-          ${a.jours_speciaux ? `<div class="section"><h4>Jours spéciaux</h4>${this._joursSpeciaux(a)}</div>` : ""}
-          ${a.type_offre === "dynamique" && a.previsions_disponibles === false ? '<div class="legende">La source ne publie pas les prix à venir : seule l\'heure en cours est connue.</div>' : ""}
-          ${estTempo && this._config.afficher_tempo ? `<div class="section"><h4>Couleurs Tempo</h4>${this._tempo(a)}</div>` : ""}
-          ${this._config.afficher_suivi ? this._suivi(a) : ""}
-          ${this._config.afficher_grille ? `<div class="section"><h4>Grille tarifaire (€/kWh TTC)</h4>${this._grille(a)}</div>` : ""}
-          ${this._config.afficher_historique ? this._historique(a) : ""}
+          ${evolution}
+          ${this._config.afficher_frise ? `<div class="section"><h4>${T.prochaines(this._config.heures)}</h4>${this._frise(o, a)}</div>` : ""}
+          ${a.jours_speciaux ? `<div class="section"><h4>${T.joursSpeciaux}</h4>${this._joursSpeciaux(o, a)}</div>` : ""}
+          ${a.type_offre === "dynamique" && a.previsions_disponibles === false ? `<div class="legende">${T.dynSansPrevision}</div>` : ""}
+          ${estTempo && this._config.afficher_tempo ? `<div class="section"><h4>${T.couleursTempo}</h4>${this._tempo(o, a)}</div>` : ""}
+          ${this._config.afficher_suivi ? this._suivi(o, a) : ""}
+          ${this._config.afficher_grille ? `<div class="section"><h4>${T.grille}</h4>${this._grille(o, a)}</div>` : ""}
+          ${this._config.afficher_historique ? this._historique(o, a) : ""}
         </div>
       </ha-card>`;
     this.shadowRoot.querySelector(".reglages")?.addEventListener("click", () => this._ouvrirReglages());
@@ -533,16 +766,6 @@ const SCHEMA_EDITEUR = [
   { name: "afficher_historique", selector: { boolean: {} } },
   { name: "afficher_suivi", selector: { boolean: {} } },
 ];
-const LIBELLES = {
-  entity: "Capteur « Prix actuel » du contrat",
-  titre: "Titre (par défaut : fournisseur · offre)",
-  heures: "Durée de la frise",
-  afficher_frise: "Afficher la frise des prochaines heures",
-  afficher_tempo: "Afficher les couleurs Tempo (offres Tempo)",
-  afficher_grille: "Afficher la grille tarifaire",
-  afficher_historique: "Afficher l'historique des prix",
-  afficher_suivi: "Afficher ma consommation (coûts, mensualité)",
-};
 
 class TarifsElectriciteCardEditor extends HTMLElement {
   setConfig(config) {
@@ -552,13 +775,15 @@ class TarifsElectriciteCardEditor extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    if (this._form) this._form.hass = hass;
+    if (this._form) {
+      this._form.hass = hass;
+      this._form.computeLabel = (s) => TEXTES[langue(hass)].editeur[s.name] || s.name;
+    }
   }
 
   _rendu() {
     if (!this._form) {
       this._form = document.createElement("ha-form");
-      this._form.computeLabel = (s) => LIBELLES[s.name] || s.name;
       this._form.addEventListener("value-changed", (ev) => {
         this._config = ev.detail.value;
         this.dispatchEvent(
@@ -571,6 +796,7 @@ class TarifsElectriciteCardEditor extends HTMLElement {
       });
       this.appendChild(this._form);
     }
+    this._form.computeLabel = (s) => TEXTES[langue(this._hass)].editeur[s.name] || s.name;
     this._form.schema = SCHEMA_EDITEUR;
     this._form.data = this._config;
     if (this._hass) this._form.hass = this._hass;
@@ -580,11 +806,14 @@ class TarifsElectriciteCardEditor extends HTMLElement {
 if (!customElements.get("tarifs-electricite-card")) {
   customElements.define("tarifs-electricite-card", TarifsElectriciteCard);
   customElements.define("tarifs-electricite-card-editor", TarifsElectriciteCardEditor);
+  const fr = langue(null) === "fr";
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "tarifs-electricite-card",
     name: "Tarifs Électricité",
-    description: "Prix du kWh en cours, heures pleines/creuses, week-end, jours spéciaux, Tempo, prix dynamique et prévisions.",
+    description: fr
+      ? "Prix du kWh en cours, heures pleines/creuses, week-end, jours spéciaux, Tempo, prix dynamique, consommation et factures."
+      : "Current electricity price, peak/off-peak, weekends, special days, Tempo, dynamic prices, consumption and bills.",
     preview: true,
     documentationURL: "https://github.com/JVmaisGpeur/ha-tarifs-electricite",
   });

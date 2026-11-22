@@ -1,5 +1,24 @@
 # Journal des modifications
 
+## 1.1.0
+
+### Interface
+Première version documentée du contrat d'interface pour les autres intégrations (**version d'interface 1**, voir README).
+- Nouveau capteur `puissance_souscrite` (kVA, `unknown` si non renseignée).
+- Nouveau capteur `offre` (enum : `base`, `hphc`, `tempo`, `dynamique` ; attributs `fournisseur`, `nom_offre`).
+- Service `previsions` : la réponse gagne `version_interface`, `type_offre` et `puissance_kva` ; chaque segment gagne `heures_creuses` et `jour_special_confirme`.
+- **Changement de comportement** – service `previsions` : `periode` est désormais en minuscules dans les segments (`hp`, `hc`… au lieu de `HP`, `HC`…), comme l'état du capteur `periode`. Une automatisation qui appelait déjà le service et testait `HP`/`HC` doit passer en minuscules. Accepté en 1.1.0 car cette forme n'était pas documentée en 1.0.0.
+- Le mot « offre » : l'état du capteur `offre` est le type d'offre (= `type_offre` du service) ; le champ `offre` du service est le nom commercial (= attribut `nom_offre` du capteur).
+- Prix inconnu explicite : `prix: null` et `couleur: null` tant qu'une couleur Tempo ou un prix dynamique n'est pas publié.
+
+### Nouveautés
+- **Français et anglais** : écrans de configuration, entités, service et carte suivent la langue de Home Assistant (anglais par défaut pour les autres langues). Les `entity_id` et les valeurs techniques ne changent pas. README en anglais : `README.en.md`.
+- Puissance souscrite modifiable seule : **Configurer → Puissance souscrite** (grille en cours et grilles à venir).
+- Période nommée : case « compte comme heures creuses » (cochée par défaut), prise en compte par `heures_creuses`.
+
+### Sans changement pour les installations existantes
+Mêmes entités, mêmes `entity_id`, même carte, configuration reprise telle quelle. Les deux nouveaux capteurs apparaissent après la mise à jour.
+
 ## 1.0.0 – Première version publique
 
 ### Contrat

@@ -82,15 +82,9 @@ def _liste(options: list[str], cle_trad: str, multiple: bool = False, liste: boo
 MODELE = _liste(list(MODELES), "modele")
 TYPES = _liste(OFFRES, "type_offre", liste=True)
 JOURS_SEMAINE = _liste(["0", "1", "2", "3", "4"], "jour_semaine", multiple=True)
-_NOMS_MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
-              "août", "septembre", "octobre", "novembre", "décembre"]
-MOIS = SelectSelector(SelectSelectorConfig(
-    options=[SelectOptionDict(value=str(i + 1), label=n) for i, n in enumerate(_NOMS_MOIS)],
-    multiple=True, mode=SelectSelectorMode.DROPDOWN))
-
-PRELEVEMENTS = SelectSelector(SelectSelectorConfig(
-    options=[SelectOptionDict(value=str(n), label=f"{n} prélèvements par an") for n in (12, 11, 10)],
-    mode=SelectSelectorMode.DROPDOWN))
+# Libellés traduits par Home Assistant (strings.json → selector)
+MOIS = _liste([str(m) for m in range(1, 13)], "mois", multiple=True)
+PRELEVEMENTS = _liste(["12", "11", "10"], "prelevements")
 
 # (clé, sélecteur, obligatoire, valeur par défaut)
 Champ = tuple[str, Any, bool, Any]
@@ -118,11 +112,7 @@ def _verif_plages(suffixe: str = "") -> Callable[[dict], dict]:
 
 
 MODE_PAIEMENT = _liste(["mensualites", "conso_reelle"], "mode_paiement", liste=True)
-FREQUENCE = SelectSelector(SelectSelectorConfig(
-    options=[SelectOptionDict(value=str(n), label=l) for n, l in
-             ((1, "Tous les mois"), (2, "Tous les 2 mois"), (3, "Tous les 3 mois"),
-              (6, "Tous les 6 mois"), (12, "Une fois par an"))],
-    mode=SelectSelectorMode.DROPDOWN))
+FREQUENCE = _liste(["1", "2", "3", "6", "12"], "frequence")
 
 
 def _champs_suivi() -> list:
@@ -242,6 +232,7 @@ class _Etapes:
             ("perso_nom", TEXTE, False, None),
             ("plages_perso", TEXTE, False, None),
             ("prix_perso", PRIX, False, None),
+            ("perso_creuse", OUI_NON, True, True),
         ], saisie, _verif_plages())
 
     async def async_step_calendrier(self, saisie=None) -> ConfigFlowResult:
@@ -374,8 +365,9 @@ MODE_MODIF = _liste(["evolution", "correction"], "mode_modif", liste=True)
 
 
 def _nom_version(v: dict) -> str:
+    """Libellé neutre (sans langue) : date d'effet, ou « … » pour la grille d'origine."""
     d = v.get("date_effet")
-    quand = f"à partir du {d[8:10]}/{d[5:7]}/{d[:4]}" if d else "grille d'origine"
+    quand = f"{d[8:10]}/{d[5:7]}/{d[:4]}" if d else "…"
     cfg = v["config"]
     return f"{quand} – {cfg.get('fournisseur', '')} {cfg.get('offre', '')}".strip()
 
@@ -389,10 +381,36 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
         self.versions = trier_versions(
             versions_depuis(self.config_entry.data, self.config_entry.options)
         )
-        menu = ["nouveaux_prix", "suivi"]
+        menu = ["nouveaux_prix", "puissance", "suivi"]
         if len(self.versions) > 1:
             menu.append("supprimer_version")
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    async def async_step_puissance(self, saisie=None) -> ConfigFlowResult:
+        """Puissance souscrite seule, sans repasser par tout le contrat.
+
+        Elle s'applique à la grille en cours et aux grilles à venir ; les
+        grilles passées gardent la leur dans l'historique.
+        """
+        aujourdhui = dt_util.now().date().isoformat()
+        actif = 0
+        for i, v in enumerate(self.versions):
+            if not v.get("date_effet") or v["date_effet"] <= aujourdhui:
+                actif = i
+        if saisie is not None:
+            for v in self.versions[actif:]:
+                cfg = dict(v["config"])
+                if saisie.get("puissance_kva"):
+                    cfg["puissance_kva"] = saisie["puissance_kva"]
+                else:
+                    cfg.pop("puissance_kva", None)
+                v["config"] = cfg
+            return self._enregistrer()
+        valeur = self.versions[actif]["config"].get("puissance_kva")
+        schema = vol.Schema({
+            vol.Optional("puissance_kva", description={"suggested_value": valeur} if valeur else None): KVA
+        })
+        return self.async_show_form(step_id="puissance", data_schema=schema)
 
     async def async_step_nouveaux_prix(self, saisie=None) -> ConfigFlowResult:
         # On part de la grille la plus récente (éventuellement une évolution prévue)
@@ -449,7 +467,6 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
                 self.versions = [v for v in self.versions if v.get("date_effet") != d]
                 self.versions.append({"date_effet": d, "config": self.valeurs})
             return self._enregistrer()
-        derniere = self.versions[-1].get("date_effet")
         schema = vol.Schema({
             vol.Required("mode", default="evolution"): MODE_MODIF,
             vol.Optional("date_effet", description={"suggested_value": aujourdhui}): DateSelector(),
@@ -457,8 +474,7 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
         return self.async_show_form(
             step_id="date_effet",
             data_schema=schema,
-            description_placeholders={"grille": _nom_version(self.versions[-1]) if derniere
-                                      else "la grille actuelle"},
+            description_placeholders={"grille": _nom_version(self.versions[-1])},
         )
 
     async def async_step_supprimer_version(self, saisie=None) -> ConfigFlowResult:

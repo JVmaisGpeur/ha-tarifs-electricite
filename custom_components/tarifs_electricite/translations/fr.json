@@ -37,7 +37,11 @@
           "prix_hsc": "Prix heures super creuses",
           "perso_nom": "Nom de la période supplémentaire",
           "plages_perso": "Plages de la période supplémentaire",
-          "prix_perso": "Prix de la période supplémentaire"
+          "prix_perso": "Prix de la période supplémentaire",
+          "perso_creuse": "La période supplémentaire compte comme heures creuses"
+        },
+        "data_description": {
+          "perso_creuse": "Décochez s'il s'agit d'une période plus chère (pointe…)."
         }
       },
       "calendrier": {
@@ -206,7 +210,11 @@
           "prix_hsc": "Prix heures super creuses",
           "perso_nom": "Nom de la période supplémentaire",
           "plages_perso": "Plages de la période supplémentaire",
-          "prix_perso": "Prix de la période supplémentaire"
+          "prix_perso": "Prix de la période supplémentaire",
+          "perso_creuse": "La période supplémentaire compte comme heures creuses"
+        },
+        "data_description": {
+          "perso_creuse": "Décochez s'il s'agit d'une période plus chère (pointe…)."
         }
       },
       "calendrier": {
@@ -304,13 +312,14 @@
         "title": "Modifier le contrat",
         "menu_options": {
           "nouveaux_prix": "Saisir de nouveaux prix ou corriger la grille",
-          "supprimer_version": "Supprimer une grille (ex. évolution annulée ou saisie en double)",
-          "suivi": "Suivi de consommation et mensualité"
+          "puissance": "Puissance souscrite",
+          "suivi": "Suivi de consommation et mensualité",
+          "supprimer_version": "Supprimer une grille (ex. évolution annulée ou saisie en double)"
         }
       },
       "date_effet": {
         "title": "Quand ces prix s'appliquent-ils ?",
-        "description": "**Évolution tarifaire** : votre fournisseur a annoncé de nouveaux prix. Indiquez leur date d'effet : l'intégration basculera seule ce jour-là à minuit, et l'ancienne grille reste dans l'historique. Vous pouvez saisir une évolution à l'avance.\n\n**Correction** : vous corrigez une erreur de saisie dans {grille}, sans créer d'historique.",
+        "description": "**Évolution tarifaire** : votre fournisseur a annoncé de nouveaux prix. Indiquez leur date d'effet : l'intégration basculera seule ce jour-là à minuit, et l'ancienne grille reste dans l'historique. Vous pouvez saisir une évolution à l'avance.\n\n**Correction** : vous corrigez une erreur de saisie dans la grille {grille}, sans créer d'historique.",
         "data": {
           "mode": "Type de modification",
           "date_effet": "Date d'effet des nouveaux prix"
@@ -359,6 +368,13 @@
         },
         "data_description": {
           "date_debut_facturation": "Sert à caler les périodes : n'importe quelle facture convient (la dernière par exemple). La facture en cours, son montant estimé et la date de la prochaine en sont déduits."
+        }
+      },
+      "puissance": {
+        "title": "Puissance souscrite",
+        "description": "Indiquée sur votre facture ou votre contrat (en kVA). Elle s'applique à la grille en cours et aux grilles à venir. Laissez vide si vous ne la connaissez pas.\n\nSi votre abonnement change en même temps, passez plutôt par « Saisir de nouveaux prix » en évolution tarifaire, pour garder l'historique.",
+        "data": {
+          "puissance_kva": "Puissance souscrite"
         }
       }
     },
@@ -453,6 +469,18 @@
       },
       "prochaine_facture": {
         "name": "Prochaine facture"
+      },
+      "offre": {
+        "name": "Type d'offre",
+        "state": {
+          "base": "Base",
+          "hphc": "Heures pleines / heures creuses",
+          "tempo": "Tempo",
+          "dynamique": "Prix dynamique"
+        }
+      },
+      "puissance_souscrite": {
+        "name": "Puissance souscrite"
       }
     },
     "binary_sensor": {
@@ -534,6 +562,38 @@
         "mensualites": "Mensualités (prélèvement fixe + régularisation)",
         "conso_reelle": "Consommation réelle (facture tous les 1, 2, 3… mois)"
       }
+    },
+    "mois": {
+      "options": {
+        "1": "janvier",
+        "2": "février",
+        "3": "mars",
+        "4": "avril",
+        "5": "mai",
+        "6": "juin",
+        "7": "juillet",
+        "8": "août",
+        "9": "septembre",
+        "10": "octobre",
+        "11": "novembre",
+        "12": "décembre"
+      }
+    },
+    "prelevements": {
+      "options": {
+        "12": "12 prélèvements par an",
+        "11": "11 prélèvements par an",
+        "10": "10 prélèvements par an"
+      }
+    },
+    "frequence": {
+      "options": {
+        "1": "Tous les mois",
+        "2": "Tous les 2 mois",
+        "3": "Tous les 3 mois",
+        "6": "Tous les 6 mois",
+        "12": "Une fois par an"
+      }
     }
   },
   "services": {
@@ -554,6 +614,14 @@
           "description": "Si renseigné, cherche le créneau continu le moins cher de cette durée (en heures)."
         }
       }
+    }
+  },
+  "exceptions": {
+    "aucun_contrat": {
+      "message": "Aucun contrat Tarifs Électricité n'est configuré."
+    },
+    "contrat_inconnu": {
+      "message": "Contrat inconnu : {entry_id}."
     }
   }
 }

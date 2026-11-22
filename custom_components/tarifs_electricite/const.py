@@ -1,7 +1,9 @@
 """Constantes de l'intégration Tarifs Électricité."""
 
 DOMAIN = "tarifs_electricite"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+# Version du contrat d'interface (entités + service previsions) : voir README
+VERSION_INTERFACE = 1
 
 SIGNAL_MAJ = f"{DOMAIN}_maj_{{}}"  # formaté avec l'entry_id
 

@@ -23,7 +23,8 @@ WE = "WE"  # prix week-end
 WE_HC = "WE_HC"  # prix week-end en heures creuses
 DYN = "DYN"  # prix dynamique (marché)
 PERIODES = [HP, HC, HSC, PERSO, WE, WE_HC, BASE, DYN]
-PERIODES_CREUSES = {HC, HSC, PERSO, WE_HC}
+# Périodes toujours creuses ; la période nommée (PERSO) l'est si le contrat le dit
+PERIODES_CREUSES = {HC, HSC, WE_HC}
 
 LIBELLES = {
     HP: "Heures pleines",
@@ -178,6 +179,9 @@ class Contexte:
 
     couleur_de: Optional[Callable[[date], Optional[str]]] = None  # Tempo
     special_de: Optional[Callable[[date], Optional[str]]] = None  # jour spécial
+    # Le type du jour est-il connu (annoncé, ou saisi) ? Faux pour un jour à venir
+    # dont le fournisseur n'a encore rien annoncé.
+    special_confirme_de: Optional[Callable[[date], bool]] = None
     prix_dyn_de: Optional[Callable[[datetime], Optional[float]]] = None  # marché
 
 
@@ -189,9 +193,12 @@ class Instant:
     saison: Optional[str] = None
     couleur: Optional[str] = None
     jour_special: Optional[str] = None
+    creuse: bool = False  # heures creuses (HC, HSC, week-end HC, période nommée creuse)
+    confirme: bool = True  # type de jour connu (offres à jours spéciaux)
 
     def cle(self) -> tuple:
-        return (self.periode, self.prix, self.saison, self.couleur, self.jour_special)
+        return (self.periode, self.prix, self.saison, self.couleur, self.jour_special,
+                self.creuse, self.confirme)
 
 
 class Tarif:
@@ -218,6 +225,7 @@ class Tarif:
         self.prix_weekend = _float(g("prix_weekend"))
         self.prix_weekend_hc = _float(g("prix_weekend_hc")) if self.est_hphc else None
         self.nom_perso: str = (g("perso_nom") or LIBELLES[PERSO]).strip()
+        self.perso_creuse: bool = bool(g("perso_creuse", True))
         self._feries_cache: dict[int, set[date]] = {}
 
         # Jours spéciaux (Sobriété, Jour Éclair, Jour Sérénité…)
@@ -284,6 +292,9 @@ class Tarif:
     def a_heures_creuses(self) -> bool:
         return self.type_offre in (OFFRE_HPHC, OFFRE_TEMPO)
 
+    def est_creuse(self, periode: str) -> bool:
+        return periode in PERIODES_CREUSES or (periode == PERSO and self.perso_creuse)
+
     def libelle(self, periode: str) -> str:
         return self.nom_perso if periode == PERSO else LIBELLES.get(periode, periode)
 
@@ -315,6 +326,13 @@ class Tarif:
     # ------------------------------------------------------------------ calcul
     def calcul(self, dt: datetime, ctx: Optional[Contexte] = None) -> Instant:
         ctx = ctx or Contexte()
+        instant = self._calcul(dt, ctx)
+        instant.creuse = self.est_creuse(instant.periode)
+        if self.jours_speciaux and ctx.special_confirme_de:
+            instant.confirme = bool(ctx.special_confirme_de(self.jour_special_de(dt)))
+        return instant
+
+    def _calcul(self, dt: datetime, ctx: Contexte) -> Instant:
         minute = dt.hour * 60 + dt.minute
         jour = dt.date()
 
@@ -394,6 +412,8 @@ class Tarif:
                         "couleur": courant.couleur,
                         "saison": courant.saison,
                         "jour_special": courant.jour_special,
+                        "jour_special_confirme": courant.confirme,
+                        "heures_creuses": courant.creuse,
                     }
                 )
                 if suivant is None:
@@ -421,20 +441,22 @@ class Tarif:
         lignes: list[dict] = []
         if self.type_offre == OFFRE_TEMPO:
             for c in COULEURS:
-                lignes.append({"libelle": c, "prix": {HP: self.prix_tempo[(c, HP)],
-                                                      HC: self.prix_tempo[(c, HC)]}})
+                lignes.append({"libelle": c, "code": c, "prix": {HP: self.prix_tempo[(c, HP)],
+                                                                 HC: self.prix_tempo[(c, HC)]}})
         elif self.type_offre in (OFFRE_BASE, OFFRE_HPHC):
             for saison, r in self.regles.items():
-                lignes.append({"libelle": NOMS_SAISON[saison],
+                lignes.append({"libelle": NOMS_SAISON[saison], "code": saison,
                                "prix": {k: v for k, v in r.prix.items() if v is not None}})
             if self.weekend == JOUR_PRIX_WE and self.prix_weekend is not None:
                 if self.est_hphc:
                     hc = self.prix_weekend_hc if self.prix_weekend_hc is not None else self.prix_weekend
-                    lignes.append({"libelle": "Week-end", "prix": {HP: self.prix_weekend, HC: hc}})
+                    lignes.append({"libelle": "Week-end", "code": "weekend",
+                                   "prix": {HP: self.prix_weekend, HC: hc}})
                 else:
-                    lignes.append({"libelle": "Week-end", "prix": {BASE: self.prix_weekend}})
+                    lignes.append({"libelle": "Week-end", "code": "weekend",
+                                   "prix": {BASE: self.prix_weekend}})
             for js in self.jours_speciaux.values():
-                lignes.append({"libelle": js.nom,
+                lignes.append({"libelle": js.nom, "code": "special",
                                "prix": {k: v for k, v in js.prix.items() if v is not None},
                                "special": True})
         cles = [p for p in (HP, HC, HSC, PERSO, BASE) if any(p in l["prix"] for l in lignes)]
@@ -561,7 +583,8 @@ def comparer_grilles(avant: dict, apres: dict) -> list[dict]:
             if vieux is None or nouveau is None or abs(vieux - nouveau) < 1e-9:
                 continue
             changements.append({
-                "libelle": ligne["libelle"], "cle": cle, "avant": vieux, "apres": nouveau,
+                "libelle": ligne["libelle"], "code": ligne.get("code"), "cle": cle,
+                "avant": vieux, "apres": nouveau,
                 "variation_pct": round((nouveau - vieux) / vieux * 100, 1) if vieux else None,
             })
     return changements
@@ -628,7 +651,7 @@ class TarifVersionne:
             variations = comparer_grilles(precedente, grille) if precedente else []
             if abo_prec and t.abonnement is not None and abs(abo_prec - t.abonnement) > 1e-9:
                 variations.append({
-                    "libelle": "Abonnement", "cle": "€/mois", "avant": abo_prec,
+                    "libelle": "Abonnement", "code": "abonnement", "cle": "€/mois", "avant": abo_prec,
                     "apres": t.abonnement,
                     "variation_pct": round((t.abonnement - abo_prec) / abo_prec * 100, 1),
                 })

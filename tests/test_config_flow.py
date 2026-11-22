@@ -213,13 +213,13 @@ def test_modification_evolution_puis_suivi_puis_suppression():
     data = test_creation_enercoop_conso_reelle()
     o = _options(data)
     r = lancer(o.async_step_init())
-    assert r["type"] == "menu" and r["menu_options"] == ["nouveaux_prix", "suivi"]
+    assert r["type"] == "menu" and r["menu_options"] == ["nouveaux_prix", "puissance", "suivi"]
     r = lancer(o.async_step_nouveaux_prix())
     assert r["step_id"] == "contrat"
     assert champs(r)["fournisseur"].description["suggested_value"] == "Enercoop"
     r = etape(o, r, {"fournisseur": "Enercoop", "offre": "Flexibilité Nuit & Week-end", "type_offre": "hphc",
                      "abonnement_mensuel": 13.8, "puissance_kva": 6})
-    r = etape(o, r, {"plages_hc": "23:00-06:00", "prix_hp": 0.3150, "prix_hc": 0.1780})
+    r = etape(o, r, {"plages_hc": "23:00-06:00", "prix_hp": 0.3150, "prix_hc": 0.1780, "perso_creuse": True})
     r = etape(o, r, {"weekend": "heures_creuses", "feries": "heures_creuses", "alsace_moselle": False,
                      "saisons": False, "jours_speciaux": False})
     assert r["step_id"] == "date_effet", r
@@ -233,7 +233,7 @@ def test_modification_evolution_puis_suivi_puis_suppression():
     # Suivi : passage en mensualités
     o = _options(data, opts)
     r = lancer(o.async_step_init())
-    assert r["menu_options"] == ["nouveaux_prix", "suivi", "supprimer_version"]
+    assert r["menu_options"] == ["nouveaux_prix", "puissance", "suivi", "supprimer_version"]
     r = lancer(o.async_step_suivi())
     assert champs(r)["mode_paiement"].description["suggested_value"] == "conso_reelle"
     r = etape(o, r, {"compteur": "sensor.envoy_conso", "mode_paiement": "mensualites"})
@@ -269,6 +269,35 @@ def test_modification_evolution_puis_suivi_puis_suppression():
     lancer(o.async_step_init())
     r = lancer(o.async_step_suivi({"mode_paiement": "mensualites"}))
     assert r["data"]["suivi"] == {}
+
+
+def test_puissance_seule_grille_en_cours_et_futures():
+    data = test_creation_enercoop_conso_reelle()
+    versions = [
+        {"date_effet": None, "config": dict(data, puissance_kva=6)},
+        {"date_effet": "2026-08-01", "config": dict(data, puissance_kva=6)},   # en cours (22/11/2026)
+        {"date_effet": "2027-02-01", "config": dict(data, puissance_kva=6)},   # à venir
+    ]
+    o = _options(data, {"versions": versions, "suivi": {}})
+    lancer(o.async_step_init())
+    r = lancer(o.async_step_puissance())
+    assert r["step_id"] == "puissance" and champs(r)["puissance_kva"].description["suggested_value"] == 6
+    r = lancer(o.async_step_puissance({"puissance_kva": 9}))
+    kva = [v["config"].get("puissance_kva") for v in r["data"]["versions"]]
+    assert kva == [6, 9, 9], kva
+    # Vider le champ : puissance inconnue pour la grille en cours et les suivantes
+    o = _options(data, r["data"])
+    lancer(o.async_step_init())
+    r = lancer(o.async_step_puissance({}))
+    assert [v["config"].get("puissance_kva") for v in r["data"]["versions"]] == [6, None, None]
+
+
+def test_periode_perso_proposee_creuse_par_defaut():
+    f = cf.TarifsElectriciteConfigFlow()
+    lancer(f.async_step_user({"modele": "ohm_modulo"}))
+    f.valeurs.update({"fournisseur": "OHM", "offre": "Modulo", "type_offre": "hphc"})
+    r = lancer(f.async_step_plages())
+    assert champs(r)["perso_creuse"].requis and champs(r)["perso_creuse"].description["suggested_value"] is True
 
 
 if __name__ == "__main__":

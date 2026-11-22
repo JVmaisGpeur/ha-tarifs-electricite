@@ -236,7 +236,7 @@ def test_versions_datees():
     h = t.historique(date(2026, 11, 22))
     assert [x["statut"] for x in h] == ["en_cours", "prevue"]
     assert h[1]["variation_moyenne_pct"] == 2.8
-    assert {"libelle": "Abonnement", "cle": "€/mois", "avant": 15.0, "apres": 15.5,
+    assert {"libelle": "Abonnement", "code": "abonnement", "cle": "€/mois", "avant": 15.0, "apres": 15.5,
             "variation_pct": 3.3} in h[1]["variations"]
     # Une fois la date passée
     h = t.historique(date(2027, 3, 1))
