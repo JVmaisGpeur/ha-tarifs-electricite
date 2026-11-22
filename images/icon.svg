@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="fond" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#24476F"/>
+      <stop offset="1" stop-color="#16304D"/>
+    </linearGradient>
+    <linearGradient id="eclair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD54F"/>
+      <stop offset="1" stop-color="#FFB300"/>
+    </linearGradient>
+  </defs>
+  <!-- Cadran : heures pleines (orange) / heures creuses (vert) -->
+  <circle cx="240" cy="256" r="200" fill="url(#fond)"/>
+  <circle cx="240" cy="256" r="200" fill="none" stroke="#F57C00" stroke-width="44"
+          stroke-dasharray="837.8 1256.6" transform="rotate(-150 240 256)"/>
+  <circle cx="240" cy="256" r="200" fill="none" stroke="#2E9E48" stroke-width="44"
+          stroke-dasharray="418.9 1256.6" stroke-dashoffset="-837.8" transform="rotate(-150 240 256)"/>
+  <!-- petites graduations -->
+  <g stroke="#ffffff" stroke-opacity=".55" stroke-width="8" stroke-linecap="round">
+    <line x1="240" y1="98" x2="240" y2="122"/>
+    <line x1="240" y1="390" x2="240" y2="414"/>
+    <line x1="82" y1="256" x2="106" y2="256"/>
+    <line x1="374" y1="256" x2="398" y2="256"/>
+  </g>
+  <!-- Éclair -->
+  <path d="M262 112 L160 276 L232 276 L206 404 L322 222 L248 222 Z" fill="url(#eclair)"
+        stroke="#16304D" stroke-width="10" stroke-linejoin="round"/>
+  <!-- Badge euro -->
+  <circle cx="410" cy="402" r="86" fill="#ffffff" stroke="#16304D" stroke-width="14"/>
+  <text x="410" y="436" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700"
+        font-size="104" fill="#16304D">€</text>
+</svg>

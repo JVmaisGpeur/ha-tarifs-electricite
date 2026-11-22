@@ -1,0 +1,17 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "heures_creuses": { "default": "mdi:weather-night" },
+      "heures_super_creuses": { "default": "mdi:weather-night-partly-cloudy" },
+      "prix_bas": { "default": "mdi:piggy-bank-outline" },
+      "jour_special": { "default": "mdi:calendar-alert" }
+    },
+    "select": {
+      "jour_special_aujourdhui": { "default": "mdi:calendar-star" },
+      "jour_special_demain": { "default": "mdi:calendar-star" }
+    }
+  },
+  "services": {
+    "previsions": { "service": "mdi:chart-timeline-variant" }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "domain": "tarifs_electricite",
+  "name": "Tarifs Électricité",
+  "after_dependencies": [
+    "recorder"
+  ],
+  "codeowners": [
+    "@JVmaisGpeur"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
+  "documentation": "https://github.com/JVmaisGpeur/ha-tarifs-electricite",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/JVmaisGpeur/ha-tarifs-electricite/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

@@ -1,0 +1,559 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Quelle est votre offre ?",
+        "description": "Choisissez votre offre si elle est dans la liste : la structure (plages connues, week-end, jours spéciaux…) sera pré-remplie, il ne restera que les prix à recopier depuis votre facture. Sinon, choisissez « Autre offre ».",
+        "data": {
+          "modele": "Modèle d'offre"
+        }
+      },
+      "contrat": {
+        "title": "Votre contrat",
+        "description": "Fournisseur et nom de l'offre sont libres : ils servent à l'affichage.",
+        "data": {
+          "fournisseur": "Fournisseur",
+          "offre": "Nom de l'offre",
+          "type_offre": "Type d'offre",
+          "abonnement_mensuel": "Abonnement (facultatif)",
+          "puissance_kva": "Puissance souscrite (facultatif)"
+        }
+      },
+      "prix_base": {
+        "title": "Prix du kWh",
+        "description": "Prix TTC, tel qu'indiqué sur votre facture. Les prix du week-end ou de l'été (si votre offre en a) se saisissent plus loin.",
+        "data": {
+          "prix_base": "Prix du kWh"
+        }
+      },
+      "plages": {
+        "title": "Heures pleines et heures creuses",
+        "description": "Format 23:00-06:00. Plusieurs plages : séparez-les par une virgule (ex. 02:00-07:00, 13:00-16:00). Vos heures creuses figurent sur votre facture ou dans votre espace Enedis.\n\nFacultatif : des **heures super creuses** (ex. Charge'Heures, Octopus Go) et une **période supplémentaire nommée** (ex. « Heures solaires » de Modulo). Laissez vide si votre offre n'en a pas.",
+        "data": {
+          "plages_hc": "Plages d'heures creuses",
+          "prix_hp": "Prix heures pleines",
+          "prix_hc": "Prix heures creuses",
+          "plages_hsc": "Plages d'heures super creuses",
+          "prix_hsc": "Prix heures super creuses",
+          "perso_nom": "Nom de la période supplémentaire",
+          "plages_perso": "Plages de la période supplémentaire",
+          "prix_perso": "Prix de la période supplémentaire"
+        }
+      },
+      "calendrier": {
+        "title": "Week-ends, jours fériés et options",
+        "description": "Indiquez ce que votre offre prévoit. Les jours fériés sont calculés automatiquement.",
+        "data": {
+          "weekend": "Samedi et dimanche",
+          "feries": "Jours fériés",
+          "jours_extra": "Jours de semaine au tarif du week-end (ex. Zen Week-End Plus)",
+          "alsace_moselle": "Jours fériés d'Alsace-Moselle (Vendredi saint, 26 décembre)",
+          "saisons": "Prix différents en hiver et en été",
+          "jours_speciaux": "Jours spéciaux annoncés la veille (Sobriété, Jour Éclair, Jour Sérénité…)"
+        },
+        "data_description": {
+          "jours_extra": "Ces jours suivent la même règle que le samedi et le dimanche.",
+          "jours_speciaux": "Hors Tempo, qui a son propre type d'offre."
+        }
+      },
+      "weekend": {
+        "title": "Prix du week-end",
+        "description": "Prix appliqué le week-end (et les jours choisis).",
+        "data": {
+          "prix_weekend": "Prix week-end (heures pleines, ou prix unique)",
+          "prix_weekend_hc": "Prix week-end en heures creuses (facultatif)"
+        },
+        "data_description": {
+          "prix_weekend_hc": "Laissez vide si le prix du week-end est le même toute la journée."
+        }
+      },
+      "ete": {
+        "title": "Saison d'été",
+        "description": "Cochez les mois d'hiver ; les autres sont l'été. Les prix saisis aux étapes précédentes sont ceux de l'hiver.",
+        "data": {
+          "mois_hiver": "Mois d'hiver",
+          "prix_base_ete": "Prix du kWh (été)",
+          "plages_hc_ete": "Plages d'heures creuses (été)",
+          "prix_hp_ete": "Prix heures pleines (été)",
+          "prix_hc_ete": "Prix heures creuses (été)",
+          "plages_hsc_ete": "Plages d'heures super creuses (été)",
+          "prix_hsc_ete": "Prix heures super creuses (été)",
+          "plages_perso_ete": "Plages de la période supplémentaire (été)",
+          "prix_perso_ete": "Prix de la période supplémentaire (été)"
+        }
+      },
+      "jours_speciaux": {
+        "title": "Jours spéciaux",
+        "description": "Un ou deux types de jours à prix particulier, annoncés par le fournisseur.\n\n**Comment l'intégration sait-elle qu'un jour est spécial ?** Le plus simple : un appui sur la carte, ou les sélecteurs « Jour spécial aujourd'hui / demain » créés par l'intégration (utilisables aussi dans une automatisation). Si une autre intégration annonce déjà ces jours, choisissez son entité comme source : elle sera suivie automatiquement.",
+        "data": {
+          "js_debut_h": "Heure de début de la journée",
+          "js1_nom": "Nom du jour spécial",
+          "js1_prix_hp": "Prix heures pleines ce jour-là",
+          "js1_prix_hc": "Prix heures creuses ce jour-là",
+          "js1_prix": "Prix ce jour-là",
+          "js1_source": "Source automatique pour aujourd'hui (facultatif)",
+          "js1_valeur": "État de la source qui signifie « jour spécial »",
+          "js1_source_demain": "Source automatique pour demain (facultatif)",
+          "js2_nom": "Second type de jour (facultatif)",
+          "js2_prix_hp": "Prix heures pleines (second type)",
+          "js2_prix_hc": "Prix heures creuses (second type)",
+          "js2_prix": "Prix (second type)",
+          "js2_source": "Source automatique pour aujourd'hui (second type)",
+          "js2_valeur": "État de la source (second type)",
+          "js2_source_demain": "Source automatique pour demain (second type)"
+        },
+        "data_description": {
+          "js_debut_h": "0 = minuit. Zen Flex : 8 (la journée va de 8 h à 8 h).",
+          "js1_valeur": "Par défaut « on » (interrupteur, capteur binaire, calendrier). Pour un capteur texte, écrivez la valeur attendue, ex. Sobriété (majuscules et accents ignorés)."
+        }
+      },
+      "tempo": {
+        "title": "Offre Tempo",
+        "description": "Le jour Tempo va de 6 h à 6 h. Les couleurs du jour, du lendemain et les prévisions sur 15 jours sont récupérées automatiquement (calendrier-tempo.fr, sans compte).",
+        "data": {
+          "plages_hc": "Plages d'heures creuses",
+          "prix_bleu_hp": "Bleu – heures pleines",
+          "prix_bleu_hc": "Bleu – heures creuses",
+          "prix_blanc_hp": "Blanc – heures pleines",
+          "prix_blanc_hc": "Blanc – heures creuses",
+          "prix_rouge_hp": "Rouge – heures pleines",
+          "prix_rouge_hc": "Rouge – heures creuses"
+        }
+      },
+      "dynamique": {
+        "title": "Prix dynamique",
+        "description": "Le prix change chaque heure : il vient d'une autre entité (intégration de votre fournisseur, EPEX Spot, Nord Pool…). Les €/MWh et c€/kWh sont convertis automatiquement. Si l'entité publie les prix des prochaines heures, ils servent aux prévisions.",
+        "data": {
+          "dyn_source": "Entité du prix",
+          "dyn_majoration": "À ajouter au prix (facultatif)"
+        },
+        "data_description": {
+          "dyn_majoration": "Si la source donne le prix « marché » seul : ajoutez ici acheminement et taxes en €/kWh pour obtenir le prix réellement payé."
+        }
+      },
+      "suivi": {
+        "title": "Suivi de consommation (facultatif)",
+        "description": "Choisissez le compteur d'énergie **soutirée du réseau** (Linky via TIC, Shelly EM, Enphase « consommation nette cumulée »…) pour obtenir le coût du jour, de la semaine, du mois et de l'année, et une estimation de vos factures d'après votre historique. Laissez vide pour ne pas utiliser le suivi.",
+        "data": {
+          "compteur": "Compteur d'énergie soutirée du réseau (kWh)",
+          "mode_paiement": "Comment payez-vous votre électricité ?"
+        },
+        "data_description": {
+          "compteur": "Un compteur qui ne fait qu'augmenter. L'historique déjà enregistré par Home Assistant est utilisé tout de suite. Les sauts aberrants (passerelle qui redémarre) sont ignorés."
+        }
+      },
+      "paiement_mensualites": {
+        "title": "Paiement par mensualités",
+        "description": "Vous payez un montant fixe chaque mois, puis une facture de régularisation (en général une fois par an). Tout est facultatif.",
+        "data": {
+          "mensualite_fournisseur": "Montant de votre mensualité",
+          "prelevements_par_an": "Nombre de prélèvements par an",
+          "date_debut_facturation": "Date de votre dernière facture de régularisation"
+        },
+        "data_description": {
+          "mensualite_fournisseur": "Pour savoir si elle est trop haute ou trop basse.",
+          "date_debut_facturation": "Pour suivre votre solde depuis cette date (remboursement ou complément à prévoir)."
+        }
+      },
+      "paiement_reel": {
+        "title": "Paiement de la consommation réelle",
+        "description": "Vous recevez une facture de votre consommation réelle à intervalle régulier, sans mensualité.",
+        "data": {
+          "frequence_mois": "Fréquence de facturation",
+          "date_debut_facturation": "Date d'une de vos factures"
+        },
+        "data_description": {
+          "date_debut_facturation": "Sert à caler les périodes : n'importe quelle facture convient (la dernière par exemple). La facture en cours, son montant estimé et la date de la prochaine en sont déduits."
+        }
+      }
+    },
+    "error": {
+      "plages_invalides": "Plage illisible. Format attendu : 23:00-06:00, plusieurs plages séparées par une virgule.",
+      "prix_manquant": "Indiquez le prix correspondant.",
+      "mois_manquants": "Cochez au moins un mois d'hiver.",
+      "nom_identique": "Choisissez un nom différent du premier type de jour.",
+      "compteur_requis": "Choisissez un compteur : la mensualité et le solde se calculent à partir de la consommation."
+    }
+  },
+  "options": {
+    "step": {
+      "contrat": {
+        "title": "Votre contrat",
+        "description": "Fournisseur et nom de l'offre sont libres : ils servent à l'affichage.",
+        "data": {
+          "fournisseur": "Fournisseur",
+          "offre": "Nom de l'offre",
+          "type_offre": "Type d'offre",
+          "abonnement_mensuel": "Abonnement (facultatif)",
+          "puissance_kva": "Puissance souscrite (facultatif)"
+        }
+      },
+      "prix_base": {
+        "title": "Prix du kWh",
+        "description": "Prix TTC, tel qu'indiqué sur votre facture. Les prix du week-end ou de l'été (si votre offre en a) se saisissent plus loin.",
+        "data": {
+          "prix_base": "Prix du kWh"
+        }
+      },
+      "plages": {
+        "title": "Heures pleines et heures creuses",
+        "description": "Format 23:00-06:00. Plusieurs plages : séparez-les par une virgule (ex. 02:00-07:00, 13:00-16:00). Vos heures creuses figurent sur votre facture ou dans votre espace Enedis.\n\nFacultatif : des **heures super creuses** (ex. Charge'Heures, Octopus Go) et une **période supplémentaire nommée** (ex. « Heures solaires » de Modulo). Laissez vide si votre offre n'en a pas.",
+        "data": {
+          "plages_hc": "Plages d'heures creuses",
+          "prix_hp": "Prix heures pleines",
+          "prix_hc": "Prix heures creuses",
+          "plages_hsc": "Plages d'heures super creuses",
+          "prix_hsc": "Prix heures super creuses",
+          "perso_nom": "Nom de la période supplémentaire",
+          "plages_perso": "Plages de la période supplémentaire",
+          "prix_perso": "Prix de la période supplémentaire"
+        }
+      },
+      "calendrier": {
+        "title": "Week-ends, jours fériés et options",
+        "description": "Indiquez ce que votre offre prévoit. Les jours fériés sont calculés automatiquement.",
+        "data": {
+          "weekend": "Samedi et dimanche",
+          "feries": "Jours fériés",
+          "jours_extra": "Jours de semaine au tarif du week-end (ex. Zen Week-End Plus)",
+          "alsace_moselle": "Jours fériés d'Alsace-Moselle (Vendredi saint, 26 décembre)",
+          "saisons": "Prix différents en hiver et en été",
+          "jours_speciaux": "Jours spéciaux annoncés la veille (Sobriété, Jour Éclair, Jour Sérénité…)"
+        },
+        "data_description": {
+          "jours_extra": "Ces jours suivent la même règle que le samedi et le dimanche.",
+          "jours_speciaux": "Hors Tempo, qui a son propre type d'offre."
+        }
+      },
+      "weekend": {
+        "title": "Prix du week-end",
+        "description": "Prix appliqué le week-end (et les jours choisis).",
+        "data": {
+          "prix_weekend": "Prix week-end (heures pleines, ou prix unique)",
+          "prix_weekend_hc": "Prix week-end en heures creuses (facultatif)"
+        },
+        "data_description": {
+          "prix_weekend_hc": "Laissez vide si le prix du week-end est le même toute la journée."
+        }
+      },
+      "ete": {
+        "title": "Saison d'été",
+        "description": "Cochez les mois d'hiver ; les autres sont l'été. Les prix saisis aux étapes précédentes sont ceux de l'hiver.",
+        "data": {
+          "mois_hiver": "Mois d'hiver",
+          "prix_base_ete": "Prix du kWh (été)",
+          "plages_hc_ete": "Plages d'heures creuses (été)",
+          "prix_hp_ete": "Prix heures pleines (été)",
+          "prix_hc_ete": "Prix heures creuses (été)",
+          "plages_hsc_ete": "Plages d'heures super creuses (été)",
+          "prix_hsc_ete": "Prix heures super creuses (été)",
+          "plages_perso_ete": "Plages de la période supplémentaire (été)",
+          "prix_perso_ete": "Prix de la période supplémentaire (été)"
+        }
+      },
+      "jours_speciaux": {
+        "title": "Jours spéciaux",
+        "description": "Un ou deux types de jours à prix particulier, annoncés par le fournisseur.\n\n**Comment l'intégration sait-elle qu'un jour est spécial ?** Le plus simple : un appui sur la carte, ou les sélecteurs « Jour spécial aujourd'hui / demain » créés par l'intégration (utilisables aussi dans une automatisation). Si une autre intégration annonce déjà ces jours, choisissez son entité comme source : elle sera suivie automatiquement.",
+        "data": {
+          "js_debut_h": "Heure de début de la journée",
+          "js1_nom": "Nom du jour spécial",
+          "js1_prix_hp": "Prix heures pleines ce jour-là",
+          "js1_prix_hc": "Prix heures creuses ce jour-là",
+          "js1_prix": "Prix ce jour-là",
+          "js1_source": "Source automatique pour aujourd'hui (facultatif)",
+          "js1_valeur": "État de la source qui signifie « jour spécial »",
+          "js1_source_demain": "Source automatique pour demain (facultatif)",
+          "js2_nom": "Second type de jour (facultatif)",
+          "js2_prix_hp": "Prix heures pleines (second type)",
+          "js2_prix_hc": "Prix heures creuses (second type)",
+          "js2_prix": "Prix (second type)",
+          "js2_source": "Source automatique pour aujourd'hui (second type)",
+          "js2_valeur": "État de la source (second type)",
+          "js2_source_demain": "Source automatique pour demain (second type)"
+        },
+        "data_description": {
+          "js_debut_h": "0 = minuit. Zen Flex : 8 (la journée va de 8 h à 8 h).",
+          "js1_valeur": "Par défaut « on » (interrupteur, capteur binaire, calendrier). Pour un capteur texte, écrivez la valeur attendue, ex. Sobriété (majuscules et accents ignorés)."
+        }
+      },
+      "tempo": {
+        "title": "Offre Tempo",
+        "description": "Le jour Tempo va de 6 h à 6 h. Les couleurs du jour, du lendemain et les prévisions sur 15 jours sont récupérées automatiquement (calendrier-tempo.fr, sans compte).",
+        "data": {
+          "plages_hc": "Plages d'heures creuses",
+          "prix_bleu_hp": "Bleu – heures pleines",
+          "prix_bleu_hc": "Bleu – heures creuses",
+          "prix_blanc_hp": "Blanc – heures pleines",
+          "prix_blanc_hc": "Blanc – heures creuses",
+          "prix_rouge_hp": "Rouge – heures pleines",
+          "prix_rouge_hc": "Rouge – heures creuses"
+        }
+      },
+      "dynamique": {
+        "title": "Prix dynamique",
+        "description": "Le prix change chaque heure : il vient d'une autre entité (intégration de votre fournisseur, EPEX Spot, Nord Pool…). Les €/MWh et c€/kWh sont convertis automatiquement. Si l'entité publie les prix des prochaines heures, ils servent aux prévisions.",
+        "data": {
+          "dyn_source": "Entité du prix",
+          "dyn_majoration": "À ajouter au prix (facultatif)"
+        },
+        "data_description": {
+          "dyn_majoration": "Si la source donne le prix « marché » seul : ajoutez ici acheminement et taxes en €/kWh pour obtenir le prix réellement payé."
+        }
+      },
+      "init": {
+        "title": "Modifier le contrat",
+        "menu_options": {
+          "nouveaux_prix": "Saisir de nouveaux prix ou corriger la grille",
+          "supprimer_version": "Supprimer une grille (ex. évolution annulée ou saisie en double)",
+          "suivi": "Suivi de consommation et mensualité"
+        }
+      },
+      "date_effet": {
+        "title": "Quand ces prix s'appliquent-ils ?",
+        "description": "**Évolution tarifaire** : votre fournisseur a annoncé de nouveaux prix. Indiquez leur date d'effet : l'intégration basculera seule ce jour-là à minuit, et l'ancienne grille reste dans l'historique. Vous pouvez saisir une évolution à l'avance.\n\n**Correction** : vous corrigez une erreur de saisie dans {grille}, sans créer d'historique.",
+        "data": {
+          "mode": "Type de modification",
+          "date_effet": "Date d'effet des nouveaux prix"
+        },
+        "data_description": {
+          "date_effet": "Ignorée pour une correction. Par défaut : aujourd'hui."
+        }
+      },
+      "supprimer_version": {
+        "title": "Supprimer une grille",
+        "description": "La grille choisie est retirée de l'historique. Si c'est la grille en cours, la précédente s'applique à nouveau.",
+        "data": {
+          "version": "Grille à supprimer"
+        }
+      },
+      "suivi": {
+        "title": "Suivi de consommation (facultatif)",
+        "description": "Choisissez le compteur d'énergie **soutirée du réseau** (Linky via TIC, Shelly EM, Enphase « consommation nette cumulée »…) pour obtenir le coût du jour, de la semaine, du mois et de l'année, et une estimation de vos factures d'après votre historique. Laissez vide pour ne pas utiliser le suivi.",
+        "data": {
+          "compteur": "Compteur d'énergie soutirée du réseau (kWh)",
+          "mode_paiement": "Comment payez-vous votre électricité ?"
+        },
+        "data_description": {
+          "compteur": "Un compteur qui ne fait qu'augmenter. L'historique déjà enregistré par Home Assistant est utilisé tout de suite. Les sauts aberrants (passerelle qui redémarre) sont ignorés."
+        }
+      },
+      "paiement_mensualites": {
+        "title": "Paiement par mensualités",
+        "description": "Vous payez un montant fixe chaque mois, puis une facture de régularisation (en général une fois par an). Tout est facultatif.",
+        "data": {
+          "mensualite_fournisseur": "Montant de votre mensualité",
+          "prelevements_par_an": "Nombre de prélèvements par an",
+          "date_debut_facturation": "Date de votre dernière facture de régularisation"
+        },
+        "data_description": {
+          "mensualite_fournisseur": "Pour savoir si elle est trop haute ou trop basse.",
+          "date_debut_facturation": "Pour suivre votre solde depuis cette date (remboursement ou complément à prévoir)."
+        }
+      },
+      "paiement_reel": {
+        "title": "Paiement de la consommation réelle",
+        "description": "Vous recevez une facture de votre consommation réelle à intervalle régulier, sans mensualité.",
+        "data": {
+          "frequence_mois": "Fréquence de facturation",
+          "date_debut_facturation": "Date d'une de vos factures"
+        },
+        "data_description": {
+          "date_debut_facturation": "Sert à caler les périodes : n'importe quelle facture convient (la dernière par exemple). La facture en cours, son montant estimé et la date de la prochaine en sont déduits."
+        }
+      }
+    },
+    "error": {
+      "plages_invalides": "Plage illisible. Format attendu : 23:00-06:00, plusieurs plages séparées par une virgule.",
+      "prix_manquant": "Indiquez le prix correspondant.",
+      "mois_manquants": "Cochez au moins un mois d'hiver.",
+      "nom_identique": "Choisissez un nom différent du premier type de jour.",
+      "compteur_requis": "Choisissez un compteur : la mensualité et le solde se calculent à partir de la consommation."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "prix_actuel": {
+        "name": "Prix actuel"
+      },
+      "periode": {
+        "name": "Période tarifaire",
+        "state": {
+          "hp": "Heures pleines",
+          "hc": "Heures creuses",
+          "hsc": "Heures super creuses",
+          "perso": "Période supplémentaire",
+          "we": "Week-end",
+          "we_hc": "Week-end heures creuses",
+          "base": "Base",
+          "dyn": "Prix dynamique"
+        }
+      },
+      "prochain_changement": {
+        "name": "Prochain changement"
+      },
+      "prochain_prix": {
+        "name": "Prochain prix"
+      },
+      "abonnement_mensuel": {
+        "name": "Abonnement mensuel"
+      },
+      "tempo_aujourdhui": {
+        "name": "Tempo aujourd'hui",
+        "state": {
+          "bleu": "Bleu",
+          "blanc": "Blanc",
+          "rouge": "Rouge"
+        }
+      },
+      "tempo_demain": {
+        "name": "Tempo demain",
+        "state": {
+          "bleu": "Bleu",
+          "blanc": "Blanc",
+          "rouge": "Rouge"
+        }
+      },
+      "tempo_previsions": {
+        "name": "Tempo prévisions",
+        "state": {
+          "bleu": "Bleu",
+          "blanc": "Blanc",
+          "rouge": "Rouge"
+        }
+      },
+      "cout_aujourdhui": {
+        "name": "Coût aujourd'hui"
+      },
+      "cout_semaine": {
+        "name": "Coût cette semaine"
+      },
+      "cout_mois": {
+        "name": "Coût ce mois-ci"
+      },
+      "cout_annee": {
+        "name": "Coût cette année"
+      },
+      "mensualite_estimee": {
+        "name": "Mensualité estimée"
+      },
+      "ecart_mensualite": {
+        "name": "Écart de mensualité"
+      },
+      "solde_estime": {
+        "name": "Solde estimé"
+      },
+      "cout_annuel_estime": {
+        "name": "Coût annuel estimé"
+      },
+      "facture_en_cours": {
+        "name": "Facture en cours"
+      },
+      "facture_estimee": {
+        "name": "Facture estimée"
+      },
+      "prochaine_facture": {
+        "name": "Prochaine facture"
+      }
+    },
+    "binary_sensor": {
+      "heures_creuses": {
+        "name": "Heures creuses"
+      },
+      "heures_super_creuses": {
+        "name": "Heures super creuses"
+      },
+      "prix_bas": {
+        "name": "Prix bas"
+      },
+      "jour_special": {
+        "name": "Jour spécial"
+      }
+    },
+    "select": {
+      "jour_special_aujourdhui": {
+        "name": "Jour spécial aujourd'hui"
+      },
+      "jour_special_demain": {
+        "name": "Jour spécial demain"
+      }
+    }
+  },
+  "selector": {
+    "modele": {
+      "options": {
+        "personnalise": "Autre offre (je décris tout moi-même)",
+        "edf_tempo": "EDF – Tempo",
+        "edf_zen_week_end": "EDF – Zen Week-End",
+        "edf_zen_week_end_hc": "EDF – Zen Week-End Heures Creuses",
+        "edf_zen_week_end_plus": "EDF – Zen Week-End Plus",
+        "edf_zen_flex": "EDF – Zen Week-End option Flex (jours Sobriété)",
+        "enercoop_nuit_weekend": "Enercoop – Flexibilité Nuit & Week-end",
+        "total_charge_heures": "TotalEnergies – Charge'Heures (heures super creuses)",
+        "total_heures_eco_plus": "TotalEnergies – Heures Eco+ (Jours Éclair)",
+        "octopus_go": "Octopus Energy – Octopus Go",
+        "ohm_week_end": "OHM Énergie – Week-End",
+        "ohm_modulo": "OHM Énergie – Modulo",
+        "ohm_beaux_jours": "OHM Énergie – Beaux Jours",
+        "sobry": "Sobry – prix dynamique",
+        "frank": "Frank Énergie – prix dynamique"
+      }
+    },
+    "type_offre": {
+      "options": {
+        "base": "Base : un prix (avec options week-end, saisons, jours spéciaux)",
+        "hphc": "Heures pleines / creuses (super creuses, période nommée, week-end, saisons, jours spéciaux)",
+        "tempo": "Tempo (bleu / blanc / rouge, couleurs automatiques)",
+        "dynamique": "Prix dynamique (change chaque heure, lu sur une autre entité)"
+      }
+    },
+    "jour": {
+      "options": {
+        "identique": "Comme en semaine",
+        "heures_creuses": "Heures creuses toute la journée",
+        "prix_weekend": "Prix week-end dédié",
+        "comme_weekend": "Comme le week-end"
+      }
+    },
+    "jour_semaine": {
+      "options": {
+        "0": "Lundi",
+        "1": "Mardi",
+        "2": "Mercredi",
+        "3": "Jeudi",
+        "4": "Vendredi"
+      }
+    },
+    "mode_modif": {
+      "options": {
+        "evolution": "Évolution tarifaire (nouveaux prix à partir d'une date)",
+        "correction": "Correction d'une erreur de saisie"
+      }
+    },
+    "mode_paiement": {
+      "options": {
+        "mensualites": "Mensualités (prélèvement fixe + régularisation)",
+        "conso_reelle": "Consommation réelle (facture tous les 1, 2, 3… mois)"
+      }
+    }
+  },
+  "services": {
+    "previsions": {
+      "name": "Prévisions de prix",
+      "description": "Renvoie les tranches de prix à venir, la moins chère, et le meilleur créneau pour une durée donnée.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Contrat",
+          "description": "Contrat à utiliser (le premier par défaut)."
+        },
+        "heures": {
+          "name": "Horizon",
+          "description": "Nombre d'heures à venir (1 à 72)."
+        },
+        "duree": {
+          "name": "Durée du créneau",
+          "description": "Si renseigné, cherche le créneau continu le moins cher de cette durée (en heures)."
+        }
+      }
+    }
+  }
+}
