@@ -55,7 +55,8 @@ mod("homeassistant.const", STATE_UNAVAILABLE="unavailable", STATE_UNKNOWN="unkno
 mod("homeassistant.core", HomeAssistant=object, ServiceCall=object, ServiceResponse=dict,
     SupportsResponse=types.SimpleNamespace(ONLY="only"), callback=lambda f: f)
 mod("homeassistant.exceptions", ServiceValidationError=Exception)
-mod("homeassistant.helpers.config_validation", config_entry_only_config_schema=lambda d: None, string=str)
+mod("homeassistant.helpers.config_validation", config_entry_only_config_schema=lambda d: None, string=str,
+    datetime=lambda v: v)
 mod("homeassistant.helpers.aiohttp_client", async_get_clientsession=lambda h: None)
 mod("homeassistant.helpers.dispatcher", async_dispatcher_send=lambda h, s: None,
     async_dispatcher_connect=lambda *a: (lambda: None))
@@ -272,6 +273,100 @@ def test_mise_a_jour_depuis_1_0_0():
     assert e["prix_actuel"]._attr_unique_id == "ancien_prix_actuel"
     assert e["prix_actuel"].entity_id == "sensor.tarif_electricite_prix_actuel"
     assert e["periode"].entity_id == "sensor.tarif_electricite_periode"
+
+
+# ------------------------------------------------------------------ v1.2.0 : prix de revente
+def test_prix_revente_absent_puis_saisi():
+    assert "prix_revente" not in entites(gestionnaire(HPHC))
+    g = gestionnaire(dict(HPHC, prix_revente=0.13))
+    e = entites(g)
+    assert e["prix_revente"].native_value == 0.13
+    assert e["prix_revente"]._attr_native_unit_of_measurement == "EUR/kWh"
+    assert e["prix_actuel"].extra_state_attributes["prix_revente"] == 0.13
+
+
+def test_prix_revente_par_grille():
+    HORLOGE[0] = datetime(2026, 11, 24, 10, 0, tzinfo=TZ)
+    versions = [
+        {"date_effet": None, "config": dict(HPHC, prix_revente=0.10)},
+        {"date_effet": "2026-06-01", "config": dict(HPHC)},  # champ vidé ensuite
+        {"date_effet": "2027-02-01", "config": dict(HPHC, prix_revente=0.04)},
+    ]
+    g = gestionnaire(HPHC, options={"versions": versions})
+    e = entites(g)
+    assert "prix_revente" in e and e["prix_revente"].native_value is None  # unknown : la grille en cours n'en a pas
+    lignes = asyncio.run(_prix_passes(g, datetime(2026, 5, 31, 23, 0, tzinfo=TZ), datetime(2026, 6, 1, 1, 0, tzinfo=TZ)))
+    assert [l["prix_revente"] for l in lignes["heures"]] == [0.10, None]
+
+
+# ------------------------------------------------------------------ v1.2.0 : service prix_passes
+async def _prix_passes(g, debut, fin):
+    async def executeur(fn, *args):
+        return fn(*args)
+
+    g.hass.async_add_executor_job = executeur
+    return await g.async_prix_passes(debut, fin)
+
+
+def test_prix_passes_heures_contigues_et_champs():
+    HORLOGE[0] = datetime(2026, 11, 24, 10, 0, tzinfo=TZ)
+    g = gestionnaire(dict(HPHC, prix_revente=0.13))
+    r = asyncio.run(_prix_passes(g, datetime(2026, 11, 23, 21, 30, tzinfo=TZ), datetime(2026, 11, 24, 2, 0, tzinfo=TZ)))
+    assert r["version_interface"] == 1
+    assert set(r["derniere_modification"]) == {"quand", "depuis"}
+    h = r["heures"]
+    assert [datetime.fromisoformat(x["debut"]).hour for x in h] == [21, 22, 23, 0, 1]  # début arrondi à l'heure
+    for a, b in zip(h, h[1:]):
+        assert datetime.fromisoformat(b["debut"]) - datetime.fromisoformat(a["debut"]) == timedelta(hours=1)
+    for x in h:
+        assert set(x) == {"debut", "prix", "prix_revente", "periode", "couleur", "jour_special"}
+        assert x["prix_revente"] == 0.13
+    assert (h[0]["periode"], h[0]["prix"]) == ("hp", 0.30638)
+    assert (h[3]["periode"], h[3]["prix"]) == ("hc", 0.1729)
+
+
+def test_prix_passes_demi_heure_et_tempo():
+    HORLOGE[0] = datetime(2026, 11, 24, 10, 0, tzinfo=TZ)
+    g = gestionnaire(dict(HPHC, plages_hc="23:30-06:00"))
+    h = asyncio.run(_prix_passes(g, datetime(2026, 11, 23, 23, 0, tzinfo=TZ), datetime(2026, 11, 24, 0, 0, tzinfo=TZ)))["heures"]
+    assert abs(h[0]["prix"] - (0.30638 + 0.1729) / 2) < 1e-5, h  # 23:00 → 00:00 : moitié HP, moitié HC
+    # Tempo : chaque heure au prix de sa couleur, d'après le journal tenu par l'intégration
+    g = gestionnaire(TEMPO)
+    g.journal["tempo"] = {"2026-11-20": "rouge", "2026-11-21": "bleu"}
+    h = asyncio.run(_prix_passes(g, datetime(2026, 11, 20, 12, 0, tzinfo=TZ), datetime(2026, 11, 21, 12, 0, tzinfo=TZ)))["heures"]
+    midi_rouge = next(x for x in h if datetime.fromisoformat(x["debut"]).hour == 12)
+    assert (midi_rouge["couleur"], midi_rouge["prix"]) == ("rouge", 0.70)
+    nuit = next(x for x in h if datetime.fromisoformat(x["debut"]).hour == 23)
+    assert nuit["couleur"] == "rouge" and nuit["prix"] == 0.16  # la journée Tempo va de 6 h à 6 h
+    matin = next(x for x in h if datetime.fromisoformat(x["debut"]).hour == 7)
+    assert (matin["couleur"], matin["prix"]) == ("bleu", 0.16)
+
+
+def test_prix_passes_dynamique_sans_historique():
+    g = gestionnaire({"fournisseur": "Sobry", "offre": "x", "type_offre": "dynamique", "dyn_source": "sensor.absent"})
+    h = asyncio.run(_prix_passes(g, datetime(2026, 11, 23, 0, 0, tzinfo=TZ), datetime(2026, 11, 23, 3, 0, tzinfo=TZ)))["heures"]
+    assert [x["prix"] for x in h] == [None, None, None]  # jamais de prix deviné
+
+
+def test_derniere_modification_des_grilles():
+    from te.prix_passes import derniere_modification, signatures
+
+    maintenant = datetime(2026, 11, 24, 10, 0, tzinfo=TZ)
+    v1 = [{"date_effet": None, "config": dict(HPHC)}]
+    etat = derniere_modification(None, signatures(v1), maintenant)
+    assert (etat["quand"], etat["depuis"]) == (None, None)  # première installation : rien de modifié
+    # Nouvelle grille au 01/02/2027
+    v2 = v1 + [{"date_effet": "2027-02-01", "config": dict(HPHC, prix_hp=0.315)}]
+    etat = derniere_modification(etat, signatures(v2), maintenant)
+    assert (etat["quand"], etat["depuis"]) == (maintenant.isoformat(), "2027-02-01")
+    # Correction d'une grille passée, datée du 01/08/2026
+    v3 = [v1[0], {"date_effet": "2026-08-01", "config": dict(HPHC, prix_hc=0.18)}, v2[1]]
+    plus_tard = maintenant + timedelta(days=1)
+    etat = derniere_modification(etat, signatures(v3), plus_tard)
+    assert (etat["quand"], etat["depuis"]) == (plus_tard.isoformat(), "2026-08-01")
+    # Suivi de consommation modifié seul : pas une modification de grille
+    v4 = [dict(v, config=dict(v["config"], compteur="sensor.autre")) for v in v3]
+    assert derniere_modification(etat, signatures(v4), plus_tard + timedelta(days=1))["quand"] == plus_tard.isoformat()
 
 
 # ------------------------------------------------------------------ indépendance

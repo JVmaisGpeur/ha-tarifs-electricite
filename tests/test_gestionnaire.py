@@ -20,7 +20,8 @@ mod("homeassistant.const", STATE_UNAVAILABLE="unavailable", STATE_UNKNOWN="unkno
 mod("homeassistant.core", HomeAssistant=object, ServiceCall=object, ServiceResponse=dict,
     SupportsResponse=types.SimpleNamespace(ONLY="only"), callback=lambda f: f)
 mod("homeassistant.exceptions", ServiceValidationError=Exception)
-mod("homeassistant.helpers.config_validation", config_entry_only_config_schema=lambda d: None, string=str)
+mod("homeassistant.helpers.config_validation", config_entry_only_config_schema=lambda d: None, string=str,
+    datetime=lambda v: v)
 mod("homeassistant.helpers.aiohttp_client", async_get_clientsession=lambda h: None)
 ENVOIS = []
 mod("homeassistant.helpers.dispatcher", async_dispatcher_send=lambda h, s: ENVOIS.append(s))

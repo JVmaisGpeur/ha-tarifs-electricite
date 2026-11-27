@@ -84,7 +84,8 @@ mod("homeassistant.const", STATE_UNAVAILABLE="unavailable", STATE_UNKNOWN="unkno
 mod("homeassistant.core", HomeAssistant=object, ServiceCall=object, ServiceResponse=dict,
     SupportsResponse=types.SimpleNamespace(ONLY="only"), callback=lambda f: f)
 mod("homeassistant.exceptions", ServiceValidationError=Exception)
-mod("homeassistant.helpers.config_validation", config_entry_only_config_schema=lambda d: None, string=str)
+mod("homeassistant.helpers.config_validation", config_entry_only_config_schema=lambda d: None, string=str,
+    datetime=lambda v: v)
 mod("homeassistant.helpers.aiohttp_client", async_get_clientsession=lambda h: None)
 mod("homeassistant.helpers.dispatcher", async_dispatcher_send=lambda h, s: None)
 mod("homeassistant.helpers.event", async_track_point_in_time=lambda *a: (lambda: None),
@@ -213,7 +214,7 @@ def test_modification_evolution_puis_suivi_puis_suppression():
     data = test_creation_enercoop_conso_reelle()
     o = _options(data)
     r = lancer(o.async_step_init())
-    assert r["type"] == "menu" and r["menu_options"] == ["nouveaux_prix", "puissance", "suivi"]
+    assert r["type"] == "menu" and r["menu_options"] == ["nouveaux_prix", "puissance", "revente", "suivi"]
     r = lancer(o.async_step_nouveaux_prix())
     assert r["step_id"] == "contrat"
     assert champs(r)["fournisseur"].description["suggested_value"] == "Enercoop"
@@ -233,7 +234,7 @@ def test_modification_evolution_puis_suivi_puis_suppression():
     # Suivi : passage en mensualités
     o = _options(data, opts)
     r = lancer(o.async_step_init())
-    assert r["menu_options"] == ["nouveaux_prix", "puissance", "suivi", "supprimer_version"]
+    assert r["menu_options"] == ["nouveaux_prix", "puissance", "revente", "suivi", "supprimer_version"]
     r = lancer(o.async_step_suivi())
     assert champs(r)["mode_paiement"].description["suggested_value"] == "conso_reelle"
     r = etape(o, r, {"compteur": "sensor.envoy_conso", "mode_paiement": "mensualites"})

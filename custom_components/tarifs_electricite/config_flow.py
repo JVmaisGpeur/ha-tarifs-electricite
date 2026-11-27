@@ -59,6 +59,7 @@ def _nombre(mini, maxi, pas, unite):
 # Home Assistant refuse un pas inférieur à 0,001 : « any » accepte toutes les décimales
 # (les prix au kWh en ont souvent 4 ou 5)
 PRIX = _nombre(0, 10, "any", "€/kWh")
+PRIX_REVENTE = _nombre(0, 1, "any", "€/kWh")
 MAJORATION = _nombre(-1, 1, "any", "€/kWh")
 EUROS = _nombre(0, 1000, 0.01, "€/mois")
 KVA = _nombre(1, 36, 1, "kVA")
@@ -217,6 +218,7 @@ class _Etapes:
             ("type_offre", TYPES, True, OFFRE_HPHC),
             ("abonnement_mensuel", EUROS, False, None),
             ("puissance_kva", KVA, False, None),
+            ("prix_revente", PRIX_REVENTE, False, None),
         ], saisie)
 
     async def async_step_prix_base(self, saisie=None) -> ConfigFlowResult:
@@ -381,7 +383,7 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
         self.versions = trier_versions(
             versions_depuis(self.config_entry.data, self.config_entry.options)
         )
-        menu = ["nouveaux_prix", "puissance", "suivi"]
+        menu = ["nouveaux_prix", "puissance", "revente", "suivi"]
         if len(self.versions) > 1:
             menu.append("supprimer_version")
         return self.async_show_menu(step_id="init", menu_options=menu)
@@ -411,6 +413,32 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
             vol.Optional("puissance_kva", description={"suggested_value": valeur} if valeur else None): KVA
         })
         return self.async_show_form(step_id="puissance", data_schema=schema)
+
+    async def async_step_revente(self, saisie=None) -> ConfigFlowResult:
+        """Prix de revente du surplus seul (v1.2.0), sur le modèle de la puissance souscrite.
+
+        Il s'applique à la grille en cours et aux grilles à venir ; les grilles
+        passées gardent le leur. Champ vide = pas de revente.
+        """
+        aujourdhui = dt_util.now().date().isoformat()
+        actif = 0
+        for i, v in enumerate(self.versions):
+            if not v.get("date_effet") or v["date_effet"] <= aujourdhui:
+                actif = i
+        if saisie is not None:
+            for v in self.versions[actif:]:
+                cfg = dict(v["config"])
+                if saisie.get("prix_revente") is not None:
+                    cfg["prix_revente"] = saisie["prix_revente"]
+                else:
+                    cfg.pop("prix_revente", None)
+                v["config"] = cfg
+            return self._enregistrer()
+        valeur = self.versions[actif]["config"].get("prix_revente")
+        schema = vol.Schema({
+            vol.Optional("prix_revente", description={"suggested_value": valeur} if valeur is not None else None): PRIX_REVENTE
+        })
+        return self.async_show_form(step_id="revente", data_schema=schema)
 
     async def async_step_nouveaux_prix(self, saisie=None) -> ConfigFlowResult:
         # On part de la grille la plus récente (éventuellement une évolution prévue)

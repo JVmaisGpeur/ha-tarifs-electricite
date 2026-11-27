@@ -16,7 +16,11 @@
           "offre": "Offer name",
           "type_offre": "Offer type",
           "abonnement_mensuel": "Standing charge (optional)",
-          "puissance_kva": "Subscribed power (optional)"
+          "puissance_kva": "Subscribed power (optional)",
+          "prix_revente": "Surplus resale price (optional)"
+        },
+        "data_description": {
+          "prix_revente": "Price at which injected surplus is bought back (EUR/kWh), as written in your resale contract. Leave empty if you do not sell your surplus."
         }
       },
       "prix_base": {
@@ -313,6 +317,7 @@
         "menu_options": {
           "nouveaux_prix": "Enter new prices or correct the grid",
           "puissance": "Subscribed power",
+          "revente": "Surplus resale",
           "suivi": "Consumption tracking and bills",
           "supprimer_version": "Delete a grid (e.g. cancelled change or duplicate)"
         }
@@ -376,6 +381,13 @@
         "data": {
           "puissance_kva": "Subscribed power"
         }
+      },
+      "revente": {
+        "title": "Surplus resale",
+        "description": "Price at which your injected surplus is bought back (EUR/kWh). It applies to the current grid and upcoming grids; past grids keep theirs. Leave empty if you do not sell your surplus.",
+        "data": {
+          "prix_revente": "Surplus resale"
+        }
       }
     },
     "error": {
@@ -412,6 +424,9 @@
       },
       "abonnement_mensuel": {
         "name": "Monthly standing charge"
+      },
+      "prix_revente": {
+        "name": "Surplus resale price"
       },
       "tempo_aujourdhui": {
         "name": "Tempo today",
@@ -614,6 +629,24 @@
           "description": "If set, finds the cheapest continuous slot of this duration (in hours)."
         }
       }
+    },
+    "prix_passes": {
+      "name": "Past prices",
+      "description": "Returns the prices of a past period, hour by hour, as the contract defines them today (corrections included).",
+      "fields": {
+        "config_entry_id": {
+          "name": "Contract",
+          "description": "Contract to use (the first one by default)."
+        },
+        "debut": {
+          "name": "Start",
+          "description": "Start of the period."
+        },
+        "fin": {
+          "name": "End",
+          "description": "End of the period (at most 366 days after the start)."
+        }
+      }
     }
   },
   "exceptions": {
@@ -622,6 +655,9 @@
     },
     "contrat_inconnu": {
       "message": "Unknown contract: {entry_id}."
+    },
+    "periode_invalide": {
+      "message": "The period must end after it starts and last at most {jours} days."
     }
   }
 }

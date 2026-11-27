@@ -27,7 +27,7 @@ Home Assistant 2025.1 or later (2026.3 or later to see the integration icon).
 4. Pick your offer from the list, check the pre-filled structure and enter your prices.
 5. Add the *Tarifs Électricité* card to a dashboard.
 
-To change prices or offer later: the integration's **Configure** button, or the card's cog icon (see below). Subscribed power can be changed on its own through **Configure → Subscribed power**.
+To change prices or offer later: the integration's **Configure** button, or the card's cog icon (see below). Subscribed power can be changed on its own through **Configure → Subscribed power**, and the surplus resale price through **Configure → Surplus resale**.
 
 ### Manual installation
 
@@ -124,9 +124,10 @@ Entity IDs are the same on every installation, whatever the language (only the d
 | `binary_sensor.tarif_electricite_jour_special` | `on` during a special day |
 | `select.tarif_electricite_jour_special_aujourdhui` / `_demain` | kind of day (offers with special days) |
 | `sensor.tarif_electricite_abonnement_mensuel` | monthly standing charge, if set |
+| `sensor.tarif_electricite_prix_revente` | surplus resale price (EUR/kWh), if set; `unknown` if the current grid has none |
 | `sensor.tarif_electricite_tempo_aujourdhui` / `_demain` / `_previsions` | Tempo offers |
 
-**Energy dashboard**: Settings → Dashboards → Energy → grid consumption → *Use an entity with current price* → `sensor.tarif_electricite_prix_actuel`.
+**Energy dashboard**: Settings → Dashboards → Energy → grid consumption → *Use an entity with current price* → `sensor.tarif_electricite_prix_actuel`. For grid return: *Use an entity with current price* → `sensor.tarif_electricite_prix_revente`.
 
 ## `tarifs_electricite.previsions` service
 
@@ -139,6 +140,19 @@ data:
   duree: 3     # slot length in hours
 response_variable: tarifs
 # tarifs.meilleur_creneau → {debut, fin, prix_moyen}
+```
+
+## `tarifs_electricite.prix_passes` service
+
+Returns the prices of a past period (at most 366 days), **hour by hour**, as the contract defines them today: a grid corrected afterwards gives the new prices. Useful to value past consumption or production.
+
+```yaml
+action: tarifs_electricite.prix_passes
+data:
+  debut: "2026-10-01 00:00:00"   # start
+  fin: "2026-11-01 00:00:00"     # end
+response_variable: passe
+# passe.heures → [{debut, prix, prix_revente, periode, couleur, jour_special}, …]
 ```
 
 ## Automation examples
@@ -210,6 +224,7 @@ Through Home Assistant's entity registry, using the contract's `entry_id` and th
 | `prix_bas` | binary_sensor | `on` when the price is in the cheapest third of the next 24 h | always |
 | `tempo_aujourdhui`, `tempo_demain` | sensor (enum) | `bleu` (blue), `blanc` (white), `rouge` (red) | Tempo offers |
 | `tempo_previsions` | sensor (enum) | colour for the day after tomorrow; `previsions` attribute | Tempo offers |
+| `prix_revente` | sensor | surplus resale price, EUR/kWh, or `unknown` if the current grid has none | when a resale price is entered (since 1.2.0) |
 
 Entity **attributes** (price grid, history, consumption…) are **not** part of the contract: they may change freely.
 
@@ -246,6 +261,18 @@ Each segment:
 | `heures_creuses` | `true` for off-peak, super off-peak, weekend off-peak, and a named period declared off-peak. Always `false` for flat and dynamic offers (use `prix`, or `prix_bas`) |
 
 Worst-case strategy: treat `prix: null` as the highest possible price and `jour_special_confirme: false` as a possible special day; recompute when `tempo_demain` or tomorrow's special-day select changes.
+
+### `tarifs_electricite.prix_passes` service (response only, since 1.2.0)
+
+Inputs: `config_entry_id` (optional), `debut`, `fin` (start and end date-times; at most 366 days; without offset = Home Assistant local time). The start is rounded down to the hour.
+
+| Field | Content |
+|---|---|
+| `version_interface` | `1` |
+| `heures` | one contiguous line per hour: `debut` (ISO 8601 with offset), `prix` (EUR/kWh, time-weighted mean over the hour; **`null` when unknown**), `prix_revente` (or `null`), dominant `periode` (lowercase), Tempo `couleur` and `jour_special` (or `null`) |
+| `derniere_modification` | `{quand, depuis}`: when the grids were last changed, and the earliest effective date affected (`depuis: null` = from the start of the contract). Both `null` until a grid is changed after 1.2.0 |
+
+Computed from the dated grids and the Tempo / special-day log kept by the integration; dynamic prices come from the recorded hourly means of the `prix_actuel` sensor. A 23:00 → 00:00 hour with off-peak from 23:30 is the mean of both prices. A controller that has already valued a period recomputes when `derniere_modification.quand` changes.
 
 ### Versioning rules
 

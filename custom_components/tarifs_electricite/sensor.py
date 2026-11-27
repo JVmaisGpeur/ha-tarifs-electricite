@@ -30,6 +30,8 @@ async def async_setup_entry(
     ]
     if any(t.abonnement is not None for _d, t in g.tarifs.versions):
         entites.append(CapteurAbonnement(g))
+    if g.a_revente:
+        entites.append(CapteurPrixRevente(g))
     if g.suivi:
         entites += [CapteurCout(g, p) for p in ("aujourdhui", "semaine", "mois", "annee")]
         entites.append(CapteurCoutAnnuel(g))
@@ -97,6 +99,7 @@ class CapteurPrixActuel(EntiteTarif, SensorEntity):
             "prix_max_24h": e.get("prix_max_24h"),
             "abonnement_mensuel": e.get("abonnement_mensuel"),
             "puissance_kva": e.get("puissance_kva"),
+            "prix_revente": e.get("prix_revente"),
             "grille": e.get("grille"),
             "previsions": e.get("previsions"),
         }
@@ -170,6 +173,22 @@ class CapteurAbonnement(EntiteTarif, SensorEntity):
     @property
     def native_value(self):
         return self.g.etat.get("abonnement_mensuel")
+
+
+class CapteurPrixRevente(EntiteTarif, SensorEntity):
+    """T1 (v1.2.0) : prix de revente du surplus de la grille en vigueur (unknown si elle n'en a pas)."""
+
+    _attr_native_unit_of_measurement = UNITE_PRIX
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 4
+    _attr_icon = "mdi:transmission-tower-export"
+
+    def __init__(self, g) -> None:
+        super().__init__(g, "prix_revente", "sensor")
+
+    @property
+    def native_value(self):
+        return self.g.etat.get("prix_revente")
 
 
 class CapteurCouleurTempo(EntiteTarif, SensorEntity):

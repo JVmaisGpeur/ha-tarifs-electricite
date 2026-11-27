@@ -16,7 +16,11 @@
           "offre": "Nom de l'offre",
           "type_offre": "Type d'offre",
           "abonnement_mensuel": "Abonnement (facultatif)",
-          "puissance_kva": "Puissance souscrite (facultatif)"
+          "puissance_kva": "Puissance souscrite (facultatif)",
+          "prix_revente": "Prix de revente du surplus (facultatif)"
+        },
+        "data_description": {
+          "prix_revente": "Prix auquel le surplus injecté est racheté (EUR/kWh), tel qu'indiqué dans votre contrat de revente. Laissez vide si vous ne revendez pas votre surplus."
         }
       },
       "prix_base": {
@@ -313,6 +317,7 @@
         "menu_options": {
           "nouveaux_prix": "Saisir de nouveaux prix ou corriger la grille",
           "puissance": "Puissance souscrite",
+          "revente": "Revente du surplus",
           "suivi": "Suivi de consommation et mensualité",
           "supprimer_version": "Supprimer une grille (ex. évolution annulée ou saisie en double)"
         }
@@ -376,6 +381,13 @@
         "data": {
           "puissance_kva": "Puissance souscrite"
         }
+      },
+      "revente": {
+        "title": "Revente du surplus",
+        "description": "Prix auquel votre surplus injecté est racheté (EUR/kWh). Il s'applique à la grille en cours et aux grilles à venir ; les grilles passées gardent le leur. Laissez vide si vous ne revendez pas votre surplus.",
+        "data": {
+          "prix_revente": "Revente du surplus"
+        }
       }
     },
     "error": {
@@ -412,6 +424,9 @@
       },
       "abonnement_mensuel": {
         "name": "Abonnement mensuel"
+      },
+      "prix_revente": {
+        "name": "Prix de revente du surplus"
       },
       "tempo_aujourdhui": {
         "name": "Tempo aujourd'hui",
@@ -614,6 +629,24 @@
           "description": "Si renseigné, cherche le créneau continu le moins cher de cette durée (en heures)."
         }
       }
+    },
+    "prix_passes": {
+      "name": "Prix passés",
+      "description": "Renvoie les prix d'une période passée, heure par heure, tels que le contrat les définit aujourd'hui (corrections comprises).",
+      "fields": {
+        "config_entry_id": {
+          "name": "Contrat",
+          "description": "Contrat à utiliser (le premier par défaut)."
+        },
+        "debut": {
+          "name": "Début",
+          "description": "Début de la période."
+        },
+        "fin": {
+          "name": "Fin",
+          "description": "Fin de la période (au plus 366 jours après le début)."
+        }
+      }
     }
   },
   "exceptions": {
@@ -622,6 +655,9 @@
     },
     "contrat_inconnu": {
       "message": "Contrat inconnu : {entry_id}."
+    },
+    "periode_invalide": {
+      "message": "La période doit finir après son début et durer au plus {jours} jours."
     }
   }
 }

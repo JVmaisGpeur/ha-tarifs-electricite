@@ -40,6 +40,7 @@ from .const import (
     HORIZON_PREVISIONS_H,
     NORMAL,
     SERVICE_PREVISIONS,
+    SERVICE_PRIX_PASSES,
     SIGNAL_MAJ,
     TEMPO_INTERVALLE_MIN,
     URL_CARTE,
@@ -59,6 +60,13 @@ from .tariff import (
     trier_versions,
     versions_depuis,
 )
+from .prix_passes import (
+    MAX_JOURS,
+    derniere_modification,
+    heures_passees,
+    prix_revente_de,
+    signatures,
+)
 from .suivi_ha import SuiviConsommation, lire_reglages_suivi
 from .tempo import TempoClient
 
@@ -72,6 +80,14 @@ SCHEMA_PREVISIONS = vol.Schema(
         vol.Optional("config_entry_id"): cv.string,
         vol.Optional("heures", default=24): vol.All(vol.Coerce(int), vol.Range(min=1, max=72)),
         vol.Optional("duree"): vol.All(vol.Coerce(float), vol.Range(min=0.25, max=48)),
+    }
+)
+
+SCHEMA_PRIX_PASSES = vol.Schema(
+    {
+        vol.Optional("config_entry_id"): cv.string,
+        vol.Required("debut"): cv.datetime,
+        vol.Required("fin"): cv.datetime,
     }
 )
 
@@ -229,6 +245,15 @@ class GestionnaireTarif:
         journal = await self.store.async_load()
         if isinstance(journal, dict):
             self.journal.update(journal)
+        # Dernière modification des grilles (pour savoir quand des prix passés ont changé)
+        grilles = derniere_modification(
+            self.journal.get("grilles"),
+            signatures(versions_depuis(self.entry.data, self.entry.options)),
+            dt_util.now(),
+        )
+        if grilles != self.journal.get("grilles"):
+            self.journal["grilles"] = grilles
+            self._sauver_journal()
         if self.tempo and self.suivi:
             hist = await self.tempo.async_historique()
             if hist:
@@ -287,6 +312,57 @@ class GestionnaireTarif:
             return int(round(float(valeur))) if valeur not in (None, "") else None
         except (TypeError, ValueError):
             return None
+
+    # ------------------------------------------------------------------ revente, prix passés
+    @property
+    def a_revente(self) -> bool:
+        """Une grille au moins a un prix de revente : le capteur prix_revente existe."""
+        return any(t.cfg.get("prix_revente") not in (None, "") for _d, t in self.tarifs.versions)
+
+    @property
+    def prix_revente(self) -> Optional[float]:
+        return prix_revente_de(self.tarifs, dt_util.now().date())
+
+    def contexte_passe(self) -> Contexte:
+        """Couleurs Tempo et jours spéciaux tels qu'ils ont été (journal tenu par l'intégration)."""
+        tempo = self.journal.get("tempo", {})
+        speciaux = self.journal.get("speciaux", {})
+        return Contexte(
+            couleur_de=lambda j: tempo.get(j.isoformat()) or (self.tempo.couleur(j) if self.tempo else None),
+            special_de=lambda j: speciaux.get(j.isoformat()),
+        )
+
+    async def _prix_dynamiques(self, debut: datetime, fin: datetime) -> dict[datetime, float]:
+        """Moyennes horaires enregistrées du capteur « Prix actuel » (offres à prix dynamique)."""
+        if OFFRE_DYN not in self.tarifs.types_offre or not self.entite_prix:
+            return {}
+        from homeassistant.components.recorder import get_instance
+        from homeassistant.components.recorder.statistics import statistics_during_period
+
+        res = await get_instance(self.hass).async_add_executor_job(
+            statistics_during_period, self.hass, debut, fin, {self.entite_prix}, "hour", None, {"mean"}
+        )
+        out: dict[datetime, float] = {}
+        for ligne in res.get(self.entite_prix, []):
+            if ligne.get("mean") is None:
+                continue
+            debut_l = ligne["start"]
+            debut_l = (dt_util.utc_from_timestamp(debut_l) if isinstance(debut_l, (int, float)) else debut_l)
+            out[dt_util.as_local(debut_l)] = float(ligne["mean"])
+        return out
+
+    async def async_prix_passes(self, debut: datetime, fin: datetime) -> dict[str, Any]:
+        """Réponse du service `prix_passes` (contrat d'interface, version VERSION_INTERFACE)."""
+        prix_dyn = await self._prix_dynamiques(debut, fin)
+        heures = await self.hass.async_add_executor_job(
+            heures_passees, self.tarifs, self.contexte_passe(), debut, fin, prix_dyn
+        )
+        grilles = self.journal.get("grilles") or {}
+        return {
+            "version_interface": VERSION_INTERFACE,
+            "heures": heures,
+            "derniere_modification": {"quand": grilles.get("quand"), "depuis": grilles.get("depuis")},
+        }
 
     def reponse_previsions(self, heures: int, duree: Optional[float] = None) -> dict[str, Any]:
         """Réponse du service `previsions` (contrat d'interface, version VERSION_INTERFACE)."""
@@ -368,6 +444,7 @@ class GestionnaireTarif:
             "type_offre": t.type_offre,
             "abonnement_mensuel": t.abonnement,
             "puissance_kva": self.puissance_kva,
+            "prix_revente": self.prix_revente,
             "prix": instant.prix,
             "periode": instant.periode,
             "periode_libelle": instant.libelle,
@@ -467,7 +544,48 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         schema=SCHEMA_PREVISIONS,
         supports_response=SupportsResponse.ONLY,
     )
+
+    async def _service_prix_passes(call: ServiceCall) -> ServiceResponse:
+        g = _gestionnaire(hass, call.data.get("config_entry_id"))
+        debut, fin = _local(call.data["debut"]), _local(call.data["fin"])
+        if fin <= debut or fin - debut > timedelta(days=MAX_JOURS):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="periode_invalide",
+                translation_placeholders={"jours": str(MAX_JOURS)},
+            )
+        return await g.async_prix_passes(debut, fin)
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PRIX_PASSES,
+        _service_prix_passes,
+        schema=SCHEMA_PRIX_PASSES,
+        supports_response=SupportsResponse.ONLY,
+    )
     return True
+
+
+def _local(valeur: datetime) -> datetime:
+    """Date-heure du service, dans le fuseau de Home Assistant (heure locale si sans fuseau)."""
+    if valeur.tzinfo is None:
+        return valeur.replace(tzinfo=dt_util.get_default_time_zone())
+    return dt_util.as_local(valeur)
+
+
+def _gestionnaire(hass: HomeAssistant, entry_id: Optional[str]) -> "GestionnaireTarif":
+    gestionnaires: dict[str, GestionnaireTarif] = hass.data.get(DOMAIN, {})
+    if not gestionnaires:
+        raise ServiceValidationError(translation_domain=DOMAIN, translation_key="aucun_contrat")
+    if entry_id:
+        if entry_id not in gestionnaires:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="contrat_inconnu",
+                translation_placeholders={"entry_id": entry_id},
+            )
+        return gestionnaires[entry_id]
+    return next(iter(gestionnaires.values()))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

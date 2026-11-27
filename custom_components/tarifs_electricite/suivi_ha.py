@@ -159,13 +159,7 @@ class SuiviConsommation:
         self._publier()
 
     def _contexte_passe(self) -> Contexte:
-        journal = self.g.journal
-        tempo = journal.get("tempo", {})
-        speciaux = journal.get("speciaux", {})
-        return Contexte(
-            couleur_de=lambda j: tempo.get(j.isoformat()) or (self.g.tempo.couleur(j) if self.g.tempo else None),
-            special_de=lambda j: speciaux.get(j.isoformat()),
-        )
+        return self.g.contexte_passe()
 
     def _calculer_heures(self, lignes, prix_stats, maintenant) -> tuple[list[Heure], list[Heure]]:
         ctx = self._contexte_passe()

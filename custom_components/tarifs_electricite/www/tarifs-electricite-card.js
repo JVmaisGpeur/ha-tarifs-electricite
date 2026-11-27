@@ -3,7 +3,9 @@
  * Servie automatiquement par l'intégration. type: custom:tarifs-electricite-card
  * Français si Home Assistant est en français, anglais sinon.
  */
-const VERSION_CARTE = "1.1.0";
+const VERSION_CARTE = "1.2.0";
+// Sections qui ont un bouton « i » (charte de l'écosystème) ; chaque clé a son texte en français et en anglais
+const AIDE_CLES = ["prix", "frise", "speciaux", "tempo", "conso", "grille", "revente", "historique"];
 
 const COULEURS_PERIODE = {
   HP: "#f57c00",
@@ -108,6 +110,17 @@ const TEXTES = {
     grilleOrigine: "Grille d'origine",
     aucunPrix: "Aucun prix modifié",
     historique: (n) => `Historique des prix (${n} grilles)`,
+    revente: (v) => `Revente du surplus : ${v} €/kWh`,
+    aide: {
+      prix: "Le prix du kWh en ce moment, selon votre contrat, et la période en cours (heures pleines, creuses, couleur Tempo…). La flèche dit quand et à quel prix la période change. Touchez le prix pour voir son historique.",
+      frise: "Les prix des prochaines heures, de la grille saisie dans le contrat (ou des prévisions du fournisseur pour un prix dynamique). Une couleur par période.",
+      speciaux: "Les jours au tarif particulier de votre offre (Sobriété, Jour Éclair…), aujourd'hui et demain. Touchez une case pour l'indiquer à la main, ou laissez-les suivre la source choisie dans le contrat.",
+      tempo: "La couleur Tempo du jour, celle de demain dès qu'elle est publiée, et une prévision pour les jours suivants. La journée Tempo va de 6 h à 6 h.",
+      conso: "Ce que l'électricité vous a coûté, abonnement compris au prorata, d'après le compteur choisi dans le suivi. Les factures et la mensualité sont estimées à partir de votre historique.",
+      grille: "Les prix du kWh de votre contrat, tels que vous les avez recopiés, avec l'abonnement et la puissance souscrite. Le prix en cours est mis en avant.",
+      revente: "Le prix auquel le surplus injecté est racheté, tel que saisi dans le contrat. Il sert au tableau Énergie et aux intégrations qui valorisent le solaire. Il se change dans Configurer → Revente du surplus.",
+      historique: "Les grilles successives de votre contrat, avec leur date d'effet et l'écart en pourcentage. Une grille à venir s'appliquera seule à sa date.",
+    },
     editeur: {
       entity: "Capteur « Prix actuel » du contrat",
       titre: "Titre (par défaut : fournisseur · offre)",
@@ -209,6 +222,17 @@ const TEXTES = {
     grilleOrigine: "Original grid",
     aucunPrix: "No price changed",
     historique: (n) => `Price history (${n} grids)`,
+    revente: (v) => `Surplus resale: ${v} €/kWh`,
+    aide: {
+      prix: "The price per kWh right now, from your contract, and the current period (peak, off-peak, Tempo colour…). The arrow tells when and at what price the period changes. Tap the price to see its history.",
+      frise: "The prices for the coming hours, from the grid entered in the contract (or the supplier's forecast for a dynamic price). One colour per period.",
+      speciaux: "The days with a special rate in your offer, today and tomorrow. Tap a box to set it by hand, or let it follow the source chosen in the contract.",
+      tempo: "Today's Tempo colour, tomorrow's as soon as it is published, and a forecast for the following days. A Tempo day runs from 6 am to 6 am.",
+      conso: "What electricity cost you, standing charge included pro rata, from the meter chosen in the tracking settings. Bills and instalments are estimated from your history.",
+      grille: "The prices per kWh of your contract, as you copied them, with the standing charge and subscribed power. The current price is highlighted.",
+      revente: "The price at which injected surplus is bought back, as entered in the contract. It is used by the Energy dashboard and by integrations that value solar energy. Change it in Configure → Surplus resale.",
+      historique: "The successive grids of your contract, with their effective date and the change in percent. An upcoming grid will apply on its own on its date.",
+    },
     editeur: {
       entity: "Contract's “Current price” sensor",
       titre: "Title (default: supplier · offer)",
@@ -461,7 +485,11 @@ class TarifsElectriciteCard extends HTMLElement {
         : a.puissance_kva
           ? `<div class="abo">${o.T.puissance(a.puissance_kva)}</div>`
           : "";
-    return `<table><thead><tr><th></th>${entete}</tr></thead><tbody>${corps}</tbody></table>${abo}`;
+    const revente =
+      a.prix_revente != null
+        ? `<div class="abo">${o.T.revente(o.euro(a.prix_revente, 4))}${o.ib("revente")}</div>${o.hp("revente")}`
+        : "";
+    return `<table><thead><tr><th></th>${entete}</tr></thead><tbody>${corps}</tbody></table>${abo}${revente}`;
   }
 
   _suivi(o, a) {
@@ -473,7 +501,7 @@ class TarifsElectriciteCard extends HTMLElement {
     const dont = (v) => (avecAbo && v != null ? `<div class="dont">${T.dontAbo(euro(v, 2))}</div>` : "");
     if (s.etat !== "ok") {
       const msg = s.etat === "en_attente" ? T.calcul : s.etat === "pas_de_donnees" ? T.pasDeDonnees : T.indispo;
-      return `<div class="section"><h4>${T.maConso}</h4><div class="discret">${msg}</div></div>`;
+      return `<div class="section"><h4>${T.maConso}${o.ib("conso")}</h4>${o.hp("conso")}<div class="discret">${msg}</div></div>`;
     }
     const tuile = (cle, titre) => {
       const p = s[cle] || {};
@@ -528,7 +556,7 @@ class TarifsElectriciteCard extends HTMLElement {
         <div class="legende">${v >= 0 ? T.enAvance : T.enRetard}${s.solde.donnees_completes ? "" : T.incomplet}</div>`;
     }
     const corrige = s.heures_corrigees ? `<div class="legende">${T.corriges(s.heures_corrigees)}</div>` : "";
-    return `<div class="section"><h4>${T.maConso}</h4>
+    return `<div class="section"><h4>${T.maConso}${o.ib("conso")}</h4>${o.hp("conso")}
       <div class="tuiles">${tuile("aujourdhui", T.aujourdhui)}${tuile("semaine", T.semaine)}${tuile("mois", T.mois)}${tuile("annee", T.annee)}</div>
       ${avecAbo ? `<div class="legende">${T.tousMontants(euro(a.abonnement_mensuel, 2))}</div>` : ""}
       ${mensu}${solde}${corrige}</div>`;
@@ -560,7 +588,7 @@ class TarifsElectriciteCard extends HTMLElement {
           ${vars || (v.date_effet ? `<div class="discret">${T.aucunPrix}</div>` : "")}</div>`;
       })
       .join("");
-    return `<details class="historique"${this._histOuvert ? " open" : ""}><summary>${T.historique(h.length)}</summary>${lignes}</details>`;
+    return `<details class="historique"${this._histOuvert ? " open" : ""}><summary>${T.historique(h.length)}${o.ib("historique")}</summary>${lignes}</details>${o.hp("historique")}`;
   }
 
   _joursSpeciaux(o, a) {
@@ -598,6 +626,9 @@ class TarifsElectriciteCard extends HTMLElement {
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     const o = outils(this._hass);
     const { T, euro } = o;
+    this._aide = this._aide || new Set();
+    o.ib = (k) => `<button class="ib" data-aide="${k}" title="i">i</button>`;
+    o.hp = (k) => `<div class="aide${this._aide.has(k) ? " show" : ""}" data-pour="${k}">${T.aide[k]}</div>`;
     const st = this._hass?.states[this._config.entity];
     if (!st) {
       this.shadowRoot.innerHTML = `<ha-card><div class="contenu">${T.entiteIntrouvable(echapper(this._config.entity))}</div></ha-card>`;
@@ -703,6 +734,12 @@ class TarifsElectriciteCard extends HTMLElement {
         .js.special { border-color:#c62828; background:rgba(198,40,40,.08); }
         .js-titre { font-size:.75em; color: var(--secondary-text-color); }
         .js-val { font-weight:600; }
+        .ib { width:16px; height:16px; margin-left:6px; border-radius:50%; border:1px solid currentColor; background:none;
+          color: var(--secondary-text-color); font: italic 700 10px/1 serif; cursor:pointer; padding:0; vertical-align:middle;
+          text-transform:none; letter-spacing:0; }
+        .aide { display:none; font-size:.8em; line-height:1.4; color: var(--secondary-text-color); margin:2px 0 6px;
+          text-transform:none; letter-spacing:0; font-weight:400; }
+        .aide.show { display:block; }
       </style>
       <ha-card>
         <div class="entete">
@@ -716,21 +753,39 @@ class TarifsElectriciteCard extends HTMLElement {
             <span class="badge" style="--c:${couleurPeriode}">${echapper(this._periode(o, a, periode, a.jour_special))}</span>
             ${badgeTempo}
             ${a.prix_bas ? `<span class="badge bas">${T.prixBas}</span>` : ""}
+            ${o.ib("prix")}
           </div>
+          ${o.hp("prix")}
           ${prochain}
           ${minmax}
           ${evolution}
-          ${this._config.afficher_frise ? `<div class="section"><h4>${T.prochaines(this._config.heures)}</h4>${this._frise(o, a)}</div>` : ""}
-          ${a.jours_speciaux ? `<div class="section"><h4>${T.joursSpeciaux}</h4>${this._joursSpeciaux(o, a)}</div>` : ""}
+          ${this._config.afficher_frise ? `<div class="section"><h4>${T.prochaines(this._config.heures)}${o.ib("frise")}</h4>${o.hp("frise")}${this._frise(o, a)}</div>` : ""}
+          ${a.jours_speciaux ? `<div class="section"><h4>${T.joursSpeciaux}${o.ib("speciaux")}</h4>${o.hp("speciaux")}${this._joursSpeciaux(o, a)}</div>` : ""}
           ${a.type_offre === "dynamique" && a.previsions_disponibles === false ? `<div class="legende">${T.dynSansPrevision}</div>` : ""}
-          ${estTempo && this._config.afficher_tempo ? `<div class="section"><h4>${T.couleursTempo}</h4>${this._tempo(o, a)}</div>` : ""}
+          ${estTempo && this._config.afficher_tempo ? `<div class="section"><h4>${T.couleursTempo}${o.ib("tempo")}</h4>${o.hp("tempo")}${this._tempo(o, a)}</div>` : ""}
           ${this._config.afficher_suivi ? this._suivi(o, a) : ""}
-          ${this._config.afficher_grille ? `<div class="section"><h4>${T.grille}</h4>${this._grille(o, a)}</div>` : ""}
+          ${this._config.afficher_grille ? `<div class="section"><h4>${T.grille}${o.ib("grille")}</h4>${o.hp("grille")}${this._grille(o, a)}</div>` : ""}
           ${this._config.afficher_historique ? this._historique(o, a) : ""}
         </div>
       </ha-card>`;
     this.shadowRoot.querySelector(".reglages")?.addEventListener("click", () => this._ouvrirReglages());
-    this.shadowRoot.querySelector(".principal")?.addEventListener("click", () => this._plusInfo());
+    this.shadowRoot.querySelector(".principal")?.addEventListener("click", (ev) => {
+      if (!ev.target.closest?.(".ib")) this._plusInfo();
+    });
+    // Boutons « i » : un clic affiche ou masque l'explication (gardée ouverte aux mises à jour)
+    if (!this._aideBranchee) {
+      this._aideBranchee = true;
+      this.shadowRoot.addEventListener("click", (ev) => {
+        const b = ev.target.closest?.(".ib");
+        if (!b) return;
+        ev.preventDefault(); // dans l'historique : ne pas ouvrir ou fermer la liste
+        ev.stopPropagation();
+        const k = b.dataset.aide;
+        if (this._aide.has(k)) this._aide.delete(k);
+        else this._aide.add(k);
+        this.shadowRoot.querySelector(`.aide[data-pour="${k}"]`)?.classList.toggle("show", this._aide.has(k));
+      });
+    }
     this.shadowRoot.querySelector("details.historique")?.addEventListener("toggle", (ev) => {
       this._histOuvert = ev.target.open;
     });

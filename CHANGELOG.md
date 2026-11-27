@@ -1,5 +1,23 @@
 # Journal des modifications
 
+## 1.2.0
+
+### Interface
+Ajouts compatibles : la **version d'interface reste 1**.
+- Nouveau capteur `prix_revente` (EUR/kWh) : le prix de revente du surplus de la grille en vigueur. Il n'existe que si une grille au moins a un prix de revente ; `unknown` si la grille en vigueur n'en a pas.
+- Nouveau service `prix_passes` (réponse uniquement) : les prix d'une période passée, heure par heure (au plus 366 jours), tels que le contrat les définit aujourd'hui, avec `prix_revente`, `periode`, `couleur` et `jour_special` ; `derniere_modification` dit quand les grilles ont changé et depuis quelle date d'effet.
+- Le capteur `prix_actuel` gagne l'attribut `prix_revente` (les attributs ne font pas partie du contrat).
+
+### Nouveautés
+- **Prix de revente du surplus** : champ facultatif à la création du contrat, et **Configurer → Revente du surplus** ensuite (grille en cours et grilles à venir ; les grilles passées gardent le leur). Une nouvelle grille reprend le prix de revente de la précédente. Utilisable par le tableau Énergie pour le retour au réseau.
+- **Carte** : ligne « Revente du surplus » sous la grille, et un bouton « i » sur chaque section (prix, prochaines heures, jours spéciaux, Tempo, consommation, grille, revente, historique) qui explique ce qu'elle montre, en français et en anglais. Une explication ouverte le reste aux mises à jour.
+
+### Ménage
+- Les fichiers `__pycache__` ne sont plus suivis par git ; ajout d'un `.gitignore`. Aucun effet sur les installations.
+
+### Sans changement pour les installations existantes
+Mêmes entités, mêmes `entity_id`, configuration reprise telle quelle. Le capteur `prix_revente` n'apparaît qu'une fois un prix de revente saisi.
+
 ## 1.1.0
 
 ### Interface
