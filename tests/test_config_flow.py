@@ -77,8 +77,14 @@ class OptionsFlow(FlowHandler):
     pass
 
 
+class ConfigSubentryFlow(FlowHandler):
+    def async_update_and_abort(self, entry, subentry, data=None, title=None):
+        return {"type": "abort", "reason": "reconfigure_successful", "data": data, "title": title}
+
+
 mod("homeassistant.config_entries", ConfigEntry=object, ConfigFlow=ConfigFlow,
-    ConfigFlowResult=dict, OptionsFlow=OptionsFlow)
+    ConfigFlowResult=dict, OptionsFlow=OptionsFlow, ConfigSubentryFlow=ConfigSubentryFlow,
+    SubentryFlowResult=dict)
 mod("homeassistant.const", STATE_UNAVAILABLE="unavailable", STATE_UNKNOWN="unknown",
     Platform=types.SimpleNamespace(SENSOR="sensor", BINARY_SENSOR="binary_sensor", SELECT="select"))
 mod("homeassistant.core", HomeAssistant=object, ServiceCall=object, ServiceResponse=dict,
@@ -306,3 +312,43 @@ if __name__ == "__main__":
         if nom.startswith("test_"):
             fn()
             print("ok", nom)
+
+# ------------------------------------------------------------------ v1.3.0 : offres à comparer
+def test_offre_a_comparer_base_deux_puissances():
+    f = cf.OffreAComparerFlow()
+    r = lancer(f.async_step_user({"modele": "personnalise"}))
+    assert r["step_id"] == "contrat"
+    assert set(champs(r)) == {"fournisseur", "offre", "type_offre"}  # pas d'abonnement ici
+    r = etape(f, r, {"fournisseur": "Autre", "offre": "Base", "type_offre": "base"})
+    assert r["step_id"] == "prix_base"
+    r = etape(f, r, {"prix_base": 0.2516})
+    r = etape(f, r, {"weekend": "identique", "feries": "identique", "alsace_moselle": False,
+                     "saisons": False, "jours_speciaux": False})
+    assert r["step_id"] == "abonnements"
+    r2 = etape(f, r, {})
+    assert r2["errors"] == {"base": "abonnement_manquant"}
+    r = etape(f, r2, {"abo_3": 9.5, "abo_6": 12.4})
+    assert r["type"] == "create_entry" and r["title"] == "Autre – Base"
+    assert r["data"]["abo_6"] == 12.4 and r["data"]["prix_base"] == 0.2516
+
+
+def test_offre_a_comparer_modification():
+    f = cf.OffreAComparerFlow()
+    donnees = {"fournisseur": "Autre", "offre": "Base", "type_offre": "base", "prix_base": 0.25,
+               "weekend": "identique", "feries": "identique", "alsace_moselle": False,
+               "saisons": False, "jours_speciaux": False, "abo_6": 12.0}
+    f._get_reconfigure_subentry = lambda: types.SimpleNamespace(data=donnees)
+    f._get_entry = lambda: None
+    r = lancer(f.async_step_reconfigure())
+    r = etape(f, r, {"fournisseur": "Autre", "offre": "Base", "type_offre": "base"})
+    r = etape(f, r, {"prix_base": 0.24})
+    r = etape(f, r, {"weekend": "identique", "feries": "identique", "alsace_moselle": False,
+                     "saisons": False, "jours_speciaux": False})
+    r = etape(f, r, {"abo_6": 12.0})
+    assert r["type"] == "abort" and r["data"]["prix_base"] == 0.24
+
+
+def test_suivi_puissance_au_compteur():
+    f = cf.TarifsElectriciteConfigFlow()
+    noms = [c[0] for c in cf._champs_suivi()]
+    assert {"puissance_compteur", "triphase", "depassements_toleres"} <= set(noms)

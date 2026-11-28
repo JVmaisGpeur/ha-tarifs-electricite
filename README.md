@@ -55,6 +55,17 @@ Dans les deux cas : `sensor.tarif_electricite_cout_annuel_estime`. Les **sauts a
 
 Le prix des heures passées vient de l'historique du capteur *Prix actuel* (donc exactement ce qui était affiché, y compris prix dynamique et jours spéciaux). Pour les heures d'avant l'installation de l'intégration, il est recalculé avec les grilles saisies, l'historique des couleurs Tempo et le journal des jours spéciaux.
 
+## Comparer les offres et la puissance souscrite
+
+Depuis la 1.3.0 : **quelle offre et quelle puissance me coûteraient le moins, avec ma vraie consommation ?** (il faut le suivi de consommation ci-dessus).
+
+- **Offres à comparer** : sur la page de l'intégration, **Ajouter une offre à comparer**. Mêmes écrans et mêmes modèles que le contrat (Tempo, Zen, Enercoop, Octopus, OHM, Base, HP/HC, prix dynamique…), puis l'**abonnement mensuel de chaque puissance** à comparer (3, 6, 9 kVA…). Recopiez les prix depuis la grille du fournisseur : rien n'est pré-rempli. Une offre comparée ne crée **aucune entité de prix** ; elle se modifie ou se supprime depuis la même page.
+- **Calcul** : votre consommation réelle des 12 derniers mois, heure par heure, aux prix de chaque offre, + 12 mois d'abonnement. Tempo : couleurs réelles enregistrées (sinon couleur probable selon le calendrier Tempo, marquée « estimé »). Prix dynamique : moyennes horaires enregistrées de son entité de prix ; sans historique, « données insuffisantes ». Moins de 12 mois de données : total ramené à l'année, « extrapolé ». Recalcul chaque nuit et à chaque modification.
+- **Résultat** : `sensor.tarif_electricite_meilleure_offre` (offre et puissance les moins chères ; attribut `comparatif` : offre, kVA, énergie, abonnement, total, écart avec votre contrat) et `sensor.tarif_electricite_economie_possible` (€/an, 0 si votre contrat est déjà le moins cher). La carte a un onglet **Comparer**.
+- **Limite** : le comparatif suppose les mêmes heures d'achat. Un stockage piloté ou des appareils programmés achèteraient autrement avec une autre offre ; l'écart réel peut être plus grand.
+
+**Puissance conseillée** : dans **Configurer → Suivi**, choisissez la **puissance au compteur** (W, positive quand la maison achète ; trois capteurs en triphasé, un par phase), le raccordement et les **dépassements tolérés** (10 heures par an par défaut). `sensor.tarif_electricite_puissance_conseillee` donne la plus petite puissance sans dépassement sur 12 mois ; ses attributs donnent les heures de dépassement de chaque puissance (3 à 36 kVA), la plus forte pointe et sa date, et une puissance « possible avec un écrêtage ou un délestage » si elle n'est dépassée que quelques heures. En triphasé, chaque phase est comparée à la puissance ÷ 3 (le compteur coupe dès qu'une phase dépasse sa part) ; avec un seul capteur, le calcul porte sur le total et la carte prévient qu'une phase peut dépasser seule. La statistique horaire donne un maximum, pas une durée : une pointe isolée n'est pas une coupure certaine.
+
 ## Évolutions tarifaires et historique des prix
 
 Quand votre fournisseur annonce de nouveaux prix (en général un mois avant), ouvrez **Configurer**, saisissez les nouveaux prix, puis choisissez :
@@ -126,6 +137,8 @@ Identifiants identiques sur toutes les installations :
 | `sensor.tarif_electricite_abonnement_mensuel` | si renseigné |
 | `sensor.tarif_electricite_prix_revente` | prix de revente du surplus (EUR/kWh), si renseigné ; `unknown` si la grille en vigueur n'en a pas |
 | `sensor.tarif_electricite_tempo_aujourdhui` / `_demain` / `_previsions` | offres Tempo |
+| `sensor.tarif_electricite_meilleure_offre` / `_economie_possible` | avec des offres à comparer (depuis la 1.3.0) |
+| `sensor.tarif_electricite_puissance_conseillee` | avec un capteur de puissance au compteur (depuis la 1.3.0) |
 
 **Tableau Énergie** : Paramètres → Tableaux de bord → Énergie → consommation réseau → *Utiliser une entité avec le prix actuel* → `sensor.tarif_electricite_prix_actuel`. Pour le retour au réseau : *Utiliser une entité avec le prix actuel* → `sensor.tarif_electricite_prix_revente`.
 
@@ -153,6 +166,19 @@ data:
   fin: "2026-11-01 00:00:00"
 response_variable: passe
 # passe.heures → [{debut, prix, prix_revente, periode, couleur, jour_special}, …]
+```
+
+## Service `tarifs_electricite.comparer_offres`
+
+Depuis la 1.3.0 : ce que chaque offre saisie aurait coûté sur une période (au plus 366 jours), abonnement compris au prorata, avec la consommation réelle.
+
+```yaml
+action: tarifs_electricite.comparer_offres
+data:
+  debut: "2026-10-01 00:00:00"
+  fin: "2026-11-01 00:00:00"
+response_variable: comparatif
+# comparatif.lignes → [{offre, kva, energie, abonnement, total, ecart, estime, donnees_insuffisantes, actuel}, …]
 ```
 
 ## Exemples d'automatisations
@@ -227,6 +253,9 @@ Par le registre des entités de Home Assistant, avec l'`entry_id` du contrat et 
 | `tempo_aujourdhui`, `tempo_demain` | sensor (enum) | `bleu`, `blanc`, `rouge` | offres Tempo |
 | `tempo_previsions` | sensor (enum) | couleur d'après-demain ; attribut `previsions` | offres Tempo |
 | `prix_revente` | sensor | EUR/kWh, ou `unknown` si la grille en vigueur n'en a pas | si un prix de revente est saisi (depuis la 1.2.0) |
+| `meilleure_offre` | sensor (texte) | nom de l'offre et puissance les moins chères sur 12 mois | avec des offres à comparer (depuis la 1.3.0) |
+| `economie_possible` | sensor | EUR par an (0 si le contrat actuel est le moins cher) | avec des offres à comparer (depuis la 1.3.0) |
+| `puissance_conseillee` | sensor | kVA (entier), ou `unknown` si aucune puissance n'est sans dépassement | avec un capteur de puissance au compteur (depuis la 1.3.0) |
 
 Les **attributs** des entités (grille, historique, suivi…) ne font **pas** partie du contrat : ils peuvent changer librement.
 
@@ -276,6 +305,10 @@ Entrées : `config_entry_id` (facultatif), `debut`, `fin` (dates-heures ; au plu
 
 Calcul : grilles datées, journal des couleurs Tempo et des jours spéciaux tenu par l'intégration ; pour un prix dynamique, moyennes horaires enregistrées du capteur `prix_actuel`. Une heure 23:00 → 00:00 avec heures creuses à 23:30 vaut la moyenne des deux prix. Un pilote qui a déjà valorisé une période recalcule quand `derniere_modification.quand` change.
 
+### Service `tarifs_electricite.comparer_offres` (réponse uniquement, depuis la 1.3.0)
+
+Entrées : `config_entry_id` (facultatif), `debut`, `fin` (au plus 366 jours). Réponse : `version_interface` ; `lignes`, de la moins chère à la plus chère : `offre`, `kva`, `energie`, `abonnement` (au prorata de la période), `total` (EUR, ou `null` si `donnees_insuffisantes`), `ecart` et `ecart_pct` avec le contrat actuel, `estime`, `actuel` ; `meilleure` (la ligne la moins chère), `economie_possible`, `jours_de_donnees`. Calcul : consommation horaire du compteur du suivi, prix de chaque offre saisie (sous-entrées du contrat).
+
 ### Règles de version
 
 | Changement | Version |
@@ -312,6 +345,9 @@ Other integrations may rely on Tarifs Électricité, for example to drive storag
 | `tempo_aujourdhui`, `tempo_demain` | sensor (enum) | Tempo colour today / tomorrow: `bleu` blue, `blanc` white, `rouge` red | Tempo offers |
 | `tempo_previsions` | sensor (enum) | colour for the day after tomorrow; `previsions` attribute | Tempo offers |
 | `prix_revente` | sensor | surplus resale price, EUR/kWh, or `unknown` if the current grid has none | when a resale price is entered (since 1.2.0) |
+| `meilleure_offre` | sensor (text) | cheapest offer and power over 12 months | with offers to compare (since 1.3.0) |
+| `economie_possible` | sensor | possible saving, EUR per year (0 if the current contract is the cheapest) | with offers to compare (since 1.3.0) |
+| `puissance_conseillee` | sensor | advised subscribed power, kVA (integer) or `unknown` | with a power-at-the-meter sensor (since 1.3.0) |
 
 Entity **attributes** (price grid, history, consumption…) are **not** part of the contract.
 
@@ -324,6 +360,8 @@ Segments are contiguous, from the call time to the requested horizon. Each has: 
 Worst-case strategy: treat `prix: null` as the highest possible price and `jour_special_confirme: false` as a possible special day; recompute when `tempo_demain` or tomorrow's special-day selector changes.
 
 **Service `tarifs_electricite.prix_passes`** (response only, since 1.2.0). Inputs: `config_entry_id` (optional), `debut`, `fin` (start and end date-times, at most 366 days; without offset = Home Assistant local time; start rounded down to the hour). Response: `version_interface`; `heures`, one contiguous line per hour with `debut` (ISO 8601 with offset), `prix` (EUR/kWh, time-weighted mean over the hour, **`null` when unknown**), `prix_revente` (or `null`), dominant `periode` (lowercase), Tempo `couleur` and `jour_special` (or `null`); `derniere_modification` `{quand, depuis}`: when the grids were last changed and the earliest effective date affected (`depuis: null` = from the start of the contract; both `null` until a grid is changed after 1.2.0). Computed from the dated grids and the Tempo / special-day log kept by the integration; dynamic prices come from the recorded hourly means of `prix_actuel`.
+
+**Service `tarifs_electricite.comparer_offres`** (response only, since 1.3.0). Inputs: `config_entry_id` (optional), `debut`, `fin` (at most 366 days). Response: `version_interface`; `lignes` from cheapest to most expensive with `offre`, `kva`, `energie`, `abonnement` (pro rata), `total` (EUR, or `null` when `donnees_insuffisantes`), `ecart`/`ecart_pct` versus the current contract, `estime`, `actuel`; `meilleure`, `economie_possible`, `jours_de_donnees`. Offers to compare are config subentries of the contract and create no price entity.
 
 **Versioning** — renaming/removing an entity, `translation_key`, enum value or service field, or changing a unit or meaning: major version (2.0.0) and `version_interface` + 1. Adding an entity, enum value or service field: minor (1.x.0). Fixes without contract impact: patch (1.1.x). Anything to be removed is first announced as deprecated in the CHANGELOG and README for at least one minor version. Consumers must treat unknown enum values as "unsupported" without failing. The CHANGELOG has an "Interface" section for every version that touches it.
 

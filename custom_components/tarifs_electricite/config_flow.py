@@ -11,7 +11,14 @@ from typing import Any, Callable, Optional
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    ConfigSubentryFlow,
+    OptionsFlow,
+    SubentryFlowResult,
+)
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -28,7 +35,8 @@ from homeassistant.helpers.selector import (
     TextSelector,
 )
 
-from .const import DOMAIN
+from .comparaison import PUISSANCES, TOLERANCE_DEFAUT
+from .const import DOMAIN, SOUS_ENTREE_OFFRE
 from .modeles import MODELES
 from .suivi_ha import lire_reglages_suivi
 from .tariff import (
@@ -69,6 +77,11 @@ OUI_NON = BooleanSelector()
 ENTITE = EntitySelector()
 # Filtres au format « filter » (les clés domain/device_class à la racine sont l'ancien format)
 ENTITE_PRIX = EntitySelector(EntitySelectorConfig(filter=[{"domain": ["sensor", "input_number"]}]))
+# v1.3.0 : un capteur (total) ou trois (une par phase), en W ou kW
+ENTITE_PUISSANCE = EntitySelector(
+    EntitySelectorConfig(filter=[{"domain": "sensor", "device_class": "power"}], multiple=True)
+)
+HEURES_AN = _nombre(0, 1000, 1, "h")
 ENTITE_COMPTEUR = EntitySelector(
     EntitySelectorConfig(filter=[{"domain": "sensor", "device_class": "energy"}])
 )
@@ -120,7 +133,14 @@ def _champs_suivi() -> list:
     return [
         ("compteur", ENTITE_COMPTEUR, False, None),
         ("mode_paiement", MODE_PAIEMENT, True, "mensualites"),
+        # v1.3.0 : puissance conseillée
+        ("puissance_compteur", ENTITE_PUISSANCE, False, None),
+        ("triphase", OUI_NON, True, False),
+        ("depassements_toleres", HEURES_AN, True, TOLERANCE_DEFAUT),
     ]
+
+
+CHAMPS_SUIVI_COMMUNS = ["compteur", "mode_paiement", "puissance_compteur", "triphase", "depassements_toleres"]
 
 
 def _champs_paiement(mode: str) -> list:
@@ -362,6 +382,65 @@ class TarifsElectriciteConfigFlow(_Etapes, ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         return TarifsElectriciteOptionsFlow()
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
+        """v1.3.0 : offres à comparer, sous-entrées du contrat."""
+        return {SOUS_ENTREE_OFFRE: OffreAComparerFlow}
+
+
+class OffreAComparerFlow(_Etapes, ConfigSubentryFlow):
+    """Offre à comparer : mêmes écrans que le contrat, puis l'abonnement de chaque puissance.
+
+    Elle ne crée aucune entité de prix : elle ne sert qu'au comparatif.
+    """
+
+    def __init__(self) -> None:
+        self.valeurs = {}
+        self._modification = False
+
+    async def async_step_user(self, saisie=None) -> SubentryFlowResult:
+        if saisie is not None:
+            self.valeurs = dict(MODELES.get(saisie["modele"], {}))
+            return await self.async_step_contrat()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema({vol.Required("modele", default="personnalise"): MODELE}),
+        )
+
+    async def async_step_reconfigure(self, saisie=None) -> SubentryFlowResult:
+        self._modification = True
+        self.valeurs = dict(self._get_reconfigure_subentry().data)
+        return await self.async_step_contrat()
+
+    async def async_step_contrat(self, saisie=None) -> SubentryFlowResult:
+        return await self._etape("contrat", [
+            ("fournisseur", TEXTE, True, None),
+            ("offre", TEXTE, True, None),
+            ("type_offre", TYPES, True, OFFRE_HPHC),
+        ], saisie)
+
+    def _sequence(self) -> list[str]:
+        return [*super()._sequence(), "abonnements"]
+
+    async def async_step_abonnements(self, saisie=None) -> SubentryFlowResult:
+        champs: list[Champ] = [(f"abo_{p}", EUROS, False, None) for p in PUISSANCES]
+
+        def verifier(s: dict) -> dict:
+            if any(s.get(f"abo_{p}") is not None for p in PUISSANCES):
+                return {}
+            return {"base": "abonnement_manquant"}
+
+        return await self._etape("abonnements", champs, saisie, verifier)
+
+    async def _terminer(self) -> SubentryFlowResult:
+        titre = f"{self.valeurs.get('fournisseur', '')} – {self.valeurs.get('offre', '')}".strip(" –")
+        if self._modification:
+            return self.async_update_and_abort(
+                self._get_entry(), self._get_reconfigure_subentry(), data=self.valeurs, title=titre
+            )
+        return self.async_create_entry(title=titre, data=self.valeurs)
+
 
 MODE_MODIF = _liste(["evolution", "correction"], "mode_modif", liste=True)
 
@@ -459,6 +538,9 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
             if not saisie.get("compteur"):
                 return self._enregistrer({})  # suivi désactivé
             self.suivi_saisie = {**actuel, **saisie}
+            for cle, _sel, requis, _d in _champs_suivi():  # champ vidé par l'utilisateur
+                if not requis and cle not in saisie:
+                    self.suivi_saisie.pop(cle, None)
             return await getattr(self, f"async_step_{_etape_paiement(saisie['mode_paiement'])}")()
         if actuel.get("compteur") and not actuel.get("mode_paiement"):
             actuel["mode_paiement"] = "mensualites" if actuel.get("mensualite_fournisseur") else "conso_reelle"
@@ -467,7 +549,7 @@ class TarifsElectriciteOptionsFlow(_Etapes, OptionsFlow):
     async def _paiement(self, mode: str, saisie) -> ConfigFlowResult:
         champs = _champs_paiement(mode)
         if saisie is not None:
-            garder = ["compteur", "mode_paiement"] + [c[0] for c in champs]
+            garder = CHAMPS_SUIVI_COMMUNS + [c[0] for c in champs]
             final = {k: v for k, v in {**self.suivi_saisie, **saisie}.items()
                      if k in garder and v not in (None, "")}
             for cle, _sel, requis, _d in champs:  # champ vidé par l'utilisateur

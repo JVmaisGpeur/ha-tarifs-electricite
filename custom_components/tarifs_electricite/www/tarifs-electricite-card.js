@@ -3,9 +3,13 @@
  * Servie automatiquement par l'intégration. type: custom:tarifs-electricite-card
  * Français si Home Assistant est en français, anglais sinon.
  */
-const VERSION_CARTE = "1.2.0";
+const VERSION_CARTE = "1.3.0";
 // Sections qui ont un bouton « i » (charte de l'écosystème) ; chaque clé a son texte en français et en anglais
-const AIDE_CLES = ["prix", "frise", "speciaux", "tempo", "conso", "grille", "revente", "historique"];
+const AIDE_CLES = ["prix", "frise", "speciaux", "tempo", "conso", "grille", "revente", "historique", "comparer", "economie", "estime", "puissance"];
+// v1.3.0 : entités du comparatif (identifiants fixes, comme « Prix actuel »)
+const ENT_MEILLEURE = "sensor.tarif_electricite_meilleure_offre";
+const ENT_ECONOMIE = "sensor.tarif_electricite_economie_possible";
+const ENT_PUISSANCE = "sensor.tarif_electricite_puissance_conseillee";
 
 const COULEURS_PERIODE = {
   HP: "#f57c00",
@@ -111,7 +115,36 @@ const TEXTES = {
     aucunPrix: "Aucun prix modifié",
     historique: (n) => `Historique des prix (${n} grilles)`,
     revente: (v) => `Revente du surplus : ${v} €/kWh`,
+    ongletTarif: "Tarif",
+    ongletComparer: "Comparer",
+    comparerTitre: "Sur les 12 derniers mois",
+    colOffre: "Offre",
+    colEnergie: "Énergie",
+    colAbo: "Abonnement",
+    colTotal: "Total",
+    colEcart: "Écart",
+    votreContrat: "votre contrat",
+    insuffisant: "données insuffisantes",
+    estimeMot: "estimé",
+    extrapole: (j) => `Extrapolé sur un an (${j} jours de données).`,
+    economie: (v) => `Économie possible : ${v} €/an`,
+    dejaMeilleur: "Votre contrat est déjà le moins cher du tableau.",
+    limiteComparer: "Le comparatif suppose les mêmes heures d'achat. Un stockage piloté ou des appareils programmés achèteraient autrement avec une autre offre : l'écart réel peut être plus grand.",
+    comparatifEnCours: "Comparatif en cours de calcul…",
+    puissanceTitre: "Puissance",
+    conseillee: (p) => `Puissance conseillée : ${p} kVA`,
+    aucuneConseillee: "Aucune puissance sans dépassement dans la liste.",
+    possibleEcretage: (p, h) => `${p} kVA possible avec un écrêtage ou un délestage (${h} h de dépassement par an).`,
+    pointe: (w, d) => `Plus forte pointe : ${w} W, le ${d}`,
+    depasse: (h) => (h === 0 ? "aucun dépassement" : `dépassé ${h} h`),
+    actuelle: "actuelle",
+    avertPhase: "Un seul capteur en triphasé : le calcul porte sur le total, une phase peut dépasser seule.",
+    limitePuissance: "La statistique horaire donne un maximum, pas une durée : une pointe isolée n'est pas une coupure certaine.",
     aide: {
+      comparer: "Ce que vous auriez payé sur les 12 derniers mois avec chaque offre saisie, abonnement compris, avec votre vraie consommation heure par heure. Les prix sont ceux que vous avez recopiés. Les offres s'ajoutent sur la page de l'intégration : « Ajouter une offre à comparer ».",
+      economie: "L'écart entre votre contrat et l'offre la moins chère du tableau. Avec un stockage piloté, l'écart réel peut être plus grand : il achèterait aux heures les moins chères de la nouvelle offre.",
+      estime: "Une partie du calcul repose sur des données reconstituées : couleurs Tempo d'avant l'installation, jours spéciaux non enregistrés, mois extrapolés.",
+      puissance: "Combien d'heures, sur 12 mois, la puissance tirée du réseau a dépassé chaque puissance souscrite. Une puissance plus basse fait baisser l'abonnement ; un écrêtage ou un délestage peut éviter les coupures.",
       prix: "Le prix du kWh en ce moment, selon votre contrat, et la période en cours (heures pleines, creuses, couleur Tempo…). La flèche dit quand et à quel prix la période change. Touchez le prix pour voir son historique.",
       frise: "Les prix des prochaines heures, de la grille saisie dans le contrat (ou des prévisions du fournisseur pour un prix dynamique). Une couleur par période.",
       speciaux: "Les jours au tarif particulier de votre offre (Sobriété, Jour Éclair…), aujourd'hui et demain. Touchez une case pour l'indiquer à la main, ou laissez-les suivre la source choisie dans le contrat.",
@@ -223,7 +256,36 @@ const TEXTES = {
     aucunPrix: "No price changed",
     historique: (n) => `Price history (${n} grids)`,
     revente: (v) => `Surplus resale: ${v} €/kWh`,
+    ongletTarif: "Tariff",
+    ongletComparer: "Compare",
+    comparerTitre: "Over the last 12 months",
+    colOffre: "Offer",
+    colEnergie: "Energy",
+    colAbo: "Standing charge",
+    colTotal: "Total",
+    colEcart: "Difference",
+    votreContrat: "your contract",
+    insuffisant: "not enough data",
+    estimeMot: "estimated",
+    extrapole: (j) => `Extrapolated to a year (${j} days of data).`,
+    economie: (v) => `Possible saving: ${v} €/year`,
+    dejaMeilleur: "Your contract is already the cheapest in the table.",
+    limiteComparer: "The comparison assumes the same buying hours. Controlled storage or scheduled appliances would buy differently with another offer: the real difference may be larger.",
+    comparatifEnCours: "Comparison being calculated…",
+    puissanceTitre: "Power",
+    conseillee: (p) => `Advised power: ${p} kVA`,
+    aucuneConseillee: "No power without overrun in the list.",
+    possibleEcretage: (p, h) => `${p} kVA possible with peak shaving or load shedding (${h} h of overrun per year).`,
+    pointe: (w, d) => `Highest peak: ${w} W, on ${d}`,
+    depasse: (h) => (h === 0 ? "no overrun" : `exceeded ${h} h`),
+    actuelle: "current",
+    avertPhase: "Single sensor in three-phase: the calculation uses the total, one phase may exceed on its own.",
+    limitePuissance: "The hourly statistic gives a maximum, not a duration: an isolated peak is not a certain trip.",
     aide: {
+      comparer: "What you would have paid over the last 12 months with each offer entered, standing charge included, with your real hourly consumption. The prices are the ones you copied. Offers are added on the integration page: \"Add an offer to compare\".",
+      economie: "The difference between your contract and the cheapest offer in the table. With controlled storage, the real difference may be larger: it would buy at the new offer's cheapest hours.",
+      estime: "Part of the calculation relies on reconstructed data: Tempo colours from before the installation, special days not recorded, extrapolated months.",
+      puissance: "How many hours, over 12 months, the power drawn from the grid exceeded each subscribed power. A lower power lowers the standing charge; peak shaving or load shedding can avoid trips.",
       prix: "The price per kWh right now, from your contract, and the current period (peak, off-peak, Tempo colour…). The arrow tells when and at what price the period changes. Tap the price to see its history.",
       frise: "The prices for the coming hours, from the grid entered in the contract (or the supplier's forecast for a dynamic price). One colour per period.",
       speciaux: "The days with a special rate in your offer, today and tomorrow. Tap a box to set it by hand, or let it follow the source chosen in the contract.",
@@ -328,8 +390,11 @@ class TarifsElectriciteCard extends HTMLElement {
     const changementLangue = langue(hass) !== langue(this._hass);
     this._hass = hass;
     const st = hass.states[this._config?.entity];
-    if (st !== this._dernier || changementLangue) {
+    const comp = [ENT_MEILLEURE, ENT_ECONOMIE, ENT_PUISSANCE].map((e) => hass.states[e]);
+    const compChange = comp.some((s, i) => s !== (this._derniersComp || [])[i]);
+    if (st !== this._dernier || changementLangue || compChange) {
       this._dernier = st;
+      this._derniersComp = comp;
       this._rendu();
     }
   }
@@ -621,6 +686,60 @@ class TarifsElectriciteCard extends HTMLElement {
     });
   }
 
+  /* v1.3.0 : onglet « Comparer » (offres saisies, puissance conseillée) */
+  _comparer(o) {
+    const { T, euro, nombre } = o;
+    const s = (e) => this._hass?.states[e];
+    const comp = s(ENT_MEILLEURE);
+    const eco = s(ENT_ECONOMIE);
+    const pui = s(ENT_PUISSANCE);
+    let html = "";
+    if (comp) {
+      const a = comp.attributes || {};
+      const lignes = Array.isArray(a.comparatif) ? a.comparatif : [];
+      if (!lignes.length) {
+        html += `<div class="section"><h4>${T.ongletComparer}${o.ib("comparer")}</h4>${o.hp("comparer")}<div class="discret">${T.comparatifEnCours}</div></div>`;
+      } else {
+        const corps = lignes.map((l) => {
+          const nom = `${echapper(l.offre)}${l.kva ? ` · ${l.kva} kVA` : ""}${l.actuel ? ` <span class="discret">(${T.votreContrat})</span>` : ""}`;
+          const est = l.estime ? ` <span class="discret">${T.estimeMot}</span>` : "";
+          if (l.donnees_insuffisantes) {
+            return `<tr class="${l.actuel ? "actuel" : ""}"><td class="lib">${nom}</td><td colspan="4" class="discret">${T.insuffisant}</td></tr>`;
+          }
+          const ecart = l.ecart == null || l.actuel ? "" : `<span class="${l.ecart > 0 ? "hausse" : l.ecart < 0 ? "baisse" : ""}">${l.ecart > 0 ? "+" : ""}${nombre(l.ecart)} €</span>`;
+          return `<tr class="${l.actuel ? "actuel" : ""}"><td class="lib">${nom}${est}</td><td>${nombre(l.energie)} €</td><td>${nombre(l.abonnement)} €</td><td><b>${nombre(l.total)} €</b></td><td>${ecart}</td></tr>`;
+        }).join("");
+        const v = eco ? Number(eco.state) : null;
+        const ecoLigne = v === null || isNaN(v)
+          ? ""
+          : `<div class="m-ligne"><span>${v > 0 ? T.economie(nombre(v)) : T.dejaMeilleur}${o.ib("economie")}</span></div>${o.hp("economie")}`;
+        html += `<div class="section"><h4>${T.comparerTitre}${o.ib("comparer")}</h4>${o.hp("comparer")}
+          <div class="defile"><table class="comparatif"><thead><tr><th class="lib">${T.colOffre}</th><th>${T.colEnergie}</th><th>${T.colAbo}</th><th>${T.colTotal}</th><th>${T.colEcart}</th></tr></thead><tbody>${corps}</tbody></table></div>
+          ${ecoLigne}
+          ${a.estime ? `<div class="legende">${T.estimeMot}${o.ib("estime")}</div>${o.hp("estime")}` : ""}
+          ${a.extrapole ? `<div class="legende">${T.extrapole(a.jours_de_donnees)}</div>` : ""}
+          <div class="legende">${T.limiteComparer}</div></div>`;
+      }
+    }
+    if (pui) {
+      const p = pui.attributes || {};
+      const dep = p.heures_depassement || {};
+      const actuelle = p.puissance_actuelle;
+      const lignes = Object.keys(dep).map(Number).sort((x, y) => x - y).map((k) =>
+        `<div class="m-ligne ${k === actuelle ? "actuel" : ""}"><span>${k} kVA${k === actuelle ? ` <span class="discret">(${T.actuelle})</span>` : ""}</span><span class="${dep[k] ? "hausse" : "ok"}">${T.depasse(dep[k])}</span></div>`
+      ).join("");
+      const conseil = pui.state && !["unknown", "unavailable"].includes(pui.state) ? T.conseillee(pui.state) : T.aucuneConseillee;
+      const pointe = p.pointe ? `<div class="legende">${T.pointe(nombre(p.pointe.w), o.date(p.pointe.date.slice(0, 10)))}${p.pointe.phase ? ` (${echapper(p.pointe.phase)})` : ""}</div>` : "";
+      html += `<div class="section"><h4>${T.puissanceTitre}${o.ib("puissance")}</h4>${o.hp("puissance")}
+        <div class="m-ligne"><b>${conseil}</b></div>
+        ${p.possible_avec_ecretage ? `<div class="conseil">${T.possibleEcretage(p.possible_avec_ecretage, dep[p.possible_avec_ecretage])}</div>` : ""}
+        ${lignes}${pointe}
+        ${p.avertissement_phase ? `<div class="legende">${T.avertPhase}</div>` : ""}
+        <div class="legende">${T.limitePuissance}</div></div>`;
+    }
+    return html;
+  }
+
   _rendu() {
     if (!this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -642,6 +761,7 @@ class TarifsElectriciteCard extends HTMLElement {
     if (a.jour_special) couleurPeriode = "#c62828";
     const titre = this._config.titre || [a.fournisseur, a.offre].filter(Boolean).join(" · ");
     const estTempo = a.type_offre === "tempo";
+    const aComparer = Boolean(this._hass?.states[ENT_MEILLEURE] || this._hass?.states[ENT_PUISSANCE]);
 
     const badgeTempo = estTempo
       ? `<span class="badge tempo-badge" style="--c:${COULEURS_TEMPO[a.couleur_tempo] || "#999"}">${T.jourTempo(a.couleur_tempo && (o.code === "fr" ? a.couleur_tempo : a.couleur_tempo))}</span>`
@@ -740,6 +860,15 @@ class TarifsElectriciteCard extends HTMLElement {
         .aide { display:none; font-size:.8em; line-height:1.4; color: var(--secondary-text-color); margin:2px 0 6px;
           text-transform:none; letter-spacing:0; font-weight:400; }
         .aide.show { display:block; }
+        .onglets { display:flex; gap:6px; padding:10px 16px 0; }
+        .onglet { border:1px solid var(--divider-color); background:none; border-radius:999px; padding:3px 12px; font:inherit; font-size:.85em; cursor:pointer; color: var(--primary-text-color); }
+        .onglet.sel { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-primary-color, #fff); }
+        .defile { overflow-x:auto; }
+        table.comparatif { font-size:.8em; }
+        table.comparatif th, table.comparatif td { padding:4px 4px; white-space:nowrap; }
+        table.comparatif td.lib, table.comparatif th.lib { text-align:left; white-space:normal; min-width:90px; }
+        tr.actuel td { background: rgba(3,169,244,.08); font-weight:600; }
+        .m-ligne.actuel { font-weight:600; }
       </style>
       <ha-card>
         <div class="entete">
@@ -747,7 +876,9 @@ class TarifsElectriciteCard extends HTMLElement {
           <div class="titre">${echapper(titre || T.titreDefaut)}</div>
           <ha-icon class="reglages" icon="mdi:cog-outline" title="${T.reglages}"></ha-icon>
         </div>
+        ${aComparer ? `<div class="onglets"><button class="onglet ${this._onglet !== "comparer" ? "sel" : ""}" data-onglet="tarif">${T.ongletTarif}</button><button class="onglet ${this._onglet === "comparer" ? "sel" : ""}" data-onglet="comparer">${T.ongletComparer}</button></div>` : ""}
         <div class="contenu">
+          ${aComparer && this._onglet === "comparer" ? this._comparer(o) : `
           <div class="principal">
             <div class="prix">${euro(prix)}<span class="unite">€/kWh</span></div>
             <span class="badge" style="--c:${couleurPeriode}">${echapper(this._periode(o, a, periode, a.jour_special))}</span>
@@ -765,9 +896,15 @@ class TarifsElectriciteCard extends HTMLElement {
           ${estTempo && this._config.afficher_tempo ? `<div class="section"><h4>${T.couleursTempo}${o.ib("tempo")}</h4>${o.hp("tempo")}${this._tempo(o, a)}</div>` : ""}
           ${this._config.afficher_suivi ? this._suivi(o, a) : ""}
           ${this._config.afficher_grille ? `<div class="section"><h4>${T.grille}${o.ib("grille")}</h4>${o.hp("grille")}${this._grille(o, a)}</div>` : ""}
-          ${this._config.afficher_historique ? this._historique(o, a) : ""}
+          ${this._config.afficher_historique ? this._historique(o, a) : ""}`}
         </div>
       </ha-card>`;
+    this.shadowRoot.querySelectorAll(".onglet").forEach((b) =>
+      b.addEventListener("click", () => {
+        this._onglet = b.dataset.onglet;
+        this._rendu();
+      })
+    );
     this.shadowRoot.querySelector(".reglages")?.addEventListener("click", () => this._ouvrirReglages());
     this.shadowRoot.querySelector(".principal")?.addEventListener("click", (ev) => {
       if (!ev.target.closest?.(".ib")) this._plusInfo();

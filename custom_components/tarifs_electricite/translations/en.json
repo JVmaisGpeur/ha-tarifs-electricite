@@ -144,10 +144,16 @@
         "description": "Pick the meter of energy **drawn from the grid** (Linky through TIC, Shelly EM, Enphase “lifetime net energy consumption”…) to get the cost of the day, week, month and year, and an estimate of your bills from your history. Leave empty to skip tracking.",
         "data": {
           "compteur": "Grid import energy meter (kWh)",
-          "mode_paiement": "How do you pay for your electricity?"
+          "mode_paiement": "How do you pay for your electricity?",
+          "puissance_compteur": "Power at the meter",
+          "triphase": "Three-phase connection",
+          "depassements_toleres": "Tolerated overruns"
         },
         "data_description": {
-          "compteur": "A meter that only increases. History already recorded by Home Assistant is used right away. Abnormal jumps (gateway restarting) are ignored."
+          "compteur": "A meter that only increases. History already recorded by Home Assistant is used right away. Abnormal jumps (gateway restarting) are ignored.",
+          "puissance_compteur": "Optional. Power drawn from the grid (W, positive when buying). One sensor, or three in three-phase (one per phase). Used to advise a subscribed power.",
+          "triphase": "In three-phase, the subscribed power is shared between the three phases and the meter trips as soon as one phase exceeds its share.",
+          "depassements_toleres": "A power exceeded during at most this many hours a year is suggested as possible with peak shaving or load shedding (10 by default)."
         }
       },
       "paiement_mensualites": {
@@ -345,10 +351,16 @@
         "description": "Pick the meter of energy **drawn from the grid** (Linky through TIC, Shelly EM, Enphase “lifetime net energy consumption”…) to get the cost of the day, week, month and year, and an estimate of your bills from your history. Leave empty to skip tracking.",
         "data": {
           "compteur": "Grid import energy meter (kWh)",
-          "mode_paiement": "How do you pay for your electricity?"
+          "mode_paiement": "How do you pay for your electricity?",
+          "puissance_compteur": "Power at the meter",
+          "triphase": "Three-phase connection",
+          "depassements_toleres": "Tolerated overruns"
         },
         "data_description": {
-          "compteur": "A meter that only increases. History already recorded by Home Assistant is used right away. Abnormal jumps (gateway restarting) are ignored."
+          "compteur": "A meter that only increases. History already recorded by Home Assistant is used right away. Abnormal jumps (gateway restarting) are ignored.",
+          "puissance_compteur": "Optional. Power drawn from the grid (W, positive when buying). One sensor, or three in three-phase (one per phase). Used to advise a subscribed power.",
+          "triphase": "In three-phase, the subscribed power is shared between the three phases and the meter trips as soon as one phase exceeds its share.",
+          "depassements_toleres": "A power exceeded during at most this many hours a year is suggested as possible with peak shaving or load shedding (10 by default)."
         }
       },
       "paiement_mensualites": {
@@ -496,6 +508,15 @@
       },
       "puissance_souscrite": {
         "name": "Subscribed power"
+      },
+      "meilleure_offre": {
+        "name": "Best offer"
+      },
+      "economie_possible": {
+        "name": "Possible saving"
+      },
+      "puissance_conseillee": {
+        "name": "Advised subscribed power"
       }
     },
     "binary_sensor": {
@@ -647,6 +668,24 @@
           "description": "End of the period (at most 366 days after the start)."
         }
       }
+    },
+    "comparer_offres": {
+      "name": "Compare offers",
+      "description": "Returns what each offer entered would have cost over the given period (at most 366 days), standing charge included, with the real hourly consumption.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Contract",
+          "description": "Contract to use (the first one if empty)."
+        },
+        "debut": {
+          "name": "Start",
+          "description": "Start of the period."
+        },
+        "fin": {
+          "name": "End",
+          "description": "End of the period."
+        }
+      }
     }
   },
   "exceptions": {
@@ -658,6 +697,178 @@
     },
     "periode_invalide": {
       "message": "The period must end after it starts and last at most {jours} days."
+    },
+    "suivi_requis": {
+      "message": "Choose a consumption meter (Configure → Tracking) to compare offers."
+    }
+  },
+  "config_subentries": {
+    "offre": {
+      "entry_type": "Offer to compare",
+      "initiate_flow": {
+        "user": "Add an offer to compare"
+      },
+      "step": {
+        "user": {
+          "title": "Which offer do you have?",
+          "description": "Pick your offer if it is listed: its structure (known time ranges, weekends, special days…) will be pre-filled and you only need to copy the prices from your bill. Otherwise, choose “Other offer”.",
+          "data": {
+            "modele": "Offer template"
+          }
+        },
+        "contrat": {
+          "title": "Offer to compare",
+          "description": "Describe the offer with its own prices, copied from the supplier's price list. It creates no price entity: it is only used for the comparison.",
+          "data": {
+            "fournisseur": "Supplier",
+            "offre": "Offer name",
+            "type_offre": "Offer type"
+          },
+          "data_description": {}
+        },
+        "prix_base": {
+          "title": "Price per kWh",
+          "description": "Price including tax, as shown on your bill. Weekend or summer prices (if your offer has them) are entered later.",
+          "data": {
+            "prix_base": "Price per kWh"
+          }
+        },
+        "plages": {
+          "title": "Peak and off-peak hours",
+          "description": "Format 23:00-06:00. Several ranges: separate them with commas (e.g. 02:00-07:00, 13:00-16:00). Your off-peak hours are shown on your bill or in your Enedis account.\n\nOptional: **super off-peak hours** (e.g. Charge'Heures, Octopus Go) and an **extra named period** (e.g. Modulo's “solar hours”). Leave empty if your offer has none.",
+          "data": {
+            "plages_hc": "Off-peak time ranges",
+            "prix_hp": "Peak price",
+            "prix_hc": "Off-peak price",
+            "plages_hsc": "Super off-peak time ranges",
+            "prix_hsc": "Super off-peak price",
+            "perso_nom": "Extra period name",
+            "plages_perso": "Extra period time ranges",
+            "prix_perso": "Extra period price",
+            "perso_creuse": "The extra period counts as off-peak"
+          },
+          "data_description": {
+            "perso_creuse": "Untick it if this period is more expensive (peak…)."
+          }
+        },
+        "calendrier": {
+          "title": "Weekends, bank holidays and options",
+          "description": "Tell what your offer provides. French bank holidays are calculated automatically.",
+          "data": {
+            "weekend": "Saturday and Sunday",
+            "feries": "Bank holidays",
+            "jours_extra": "Weekdays charged at the weekend rate (e.g. Zen Week-End Plus)",
+            "alsace_moselle": "Alsace-Moselle bank holidays (Good Friday, 26 December)",
+            "saisons": "Different prices in winter and summer",
+            "jours_speciaux": "Special days announced the day before (Sobriété, Jour Éclair, Jour Sérénité…)"
+          },
+          "data_description": {
+            "jours_extra": "These days follow the same rule as Saturday and Sunday.",
+            "jours_speciaux": "Except Tempo, which has its own offer type."
+          }
+        },
+        "weekend": {
+          "title": "Weekend price",
+          "description": "Price charged at weekends (and on the chosen days).",
+          "data": {
+            "prix_weekend": "Weekend price (peak, or single price)",
+            "prix_weekend_hc": "Weekend off-peak price (optional)"
+          },
+          "data_description": {
+            "prix_weekend_hc": "Leave empty if the weekend price is the same all day."
+          }
+        },
+        "ete": {
+          "title": "Summer season",
+          "description": "Tick the winter months; the others are summer. Prices entered in the previous steps are the winter ones.",
+          "data": {
+            "mois_hiver": "Winter months",
+            "prix_base_ete": "Price per kWh (summer)",
+            "plages_hc_ete": "Off-peak time ranges (summer)",
+            "prix_hp_ete": "Peak price (summer)",
+            "prix_hc_ete": "Off-peak price (summer)",
+            "plages_hsc_ete": "Super off-peak time ranges (summer)",
+            "prix_hsc_ete": "Super off-peak price (summer)",
+            "plages_perso_ete": "Extra period time ranges (summer)",
+            "prix_perso_ete": "Extra period price (summer)"
+          }
+        },
+        "jours_speciaux": {
+          "title": "Special days",
+          "description": "One or two kinds of days with special prices, announced by the supplier.\n\n**How does the integration know a day is special?** The simplest way: a tap on the card, or the “Special day today / tomorrow” selects created by the integration (also usable in automations). If another integration already announces these days, pick its entity as the source: it will be followed automatically.",
+          "data": {
+            "js_debut_h": "Day start hour",
+            "js1_nom": "Special day name",
+            "js1_prix_hp": "Peak price on that day",
+            "js1_prix_hc": "Off-peak price on that day",
+            "js1_prix": "Price on that day",
+            "js1_source": "Automatic source for today (optional)",
+            "js1_valeur": "Source state meaning “special day”",
+            "js1_source_demain": "Automatic source for tomorrow (optional)",
+            "js2_nom": "Second kind of day (optional)",
+            "js2_prix_hp": "Peak price (second kind)",
+            "js2_prix_hc": "Off-peak price (second kind)",
+            "js2_prix": "Price (second kind)",
+            "js2_source": "Automatic source for today (second kind)",
+            "js2_valeur": "Source state (second kind)",
+            "js2_source_demain": "Automatic source for tomorrow (second kind)"
+          },
+          "data_description": {
+            "js_debut_h": "0 = midnight. Zen Flex: 8 (the day runs from 8:00 to 8:00).",
+            "js1_valeur": "Default “on” (switch, binary sensor, calendar). For a text sensor, enter the expected value, e.g. Sobriété (case and accents ignored)."
+          }
+        },
+        "tempo": {
+          "title": "Tempo offer",
+          "description": "A Tempo day runs from 6:00 to 6:00. Today's and tomorrow's colours and 15-day forecasts are fetched automatically (calendrier-tempo.fr, no account needed).",
+          "data": {
+            "plages_hc": "Off-peak time ranges",
+            "prix_bleu_hp": "Blue – peak",
+            "prix_bleu_hc": "Blue – off-peak",
+            "prix_blanc_hp": "White – peak",
+            "prix_blanc_hc": "White – off-peak",
+            "prix_rouge_hp": "Red – peak",
+            "prix_rouge_hc": "Red – off-peak"
+          }
+        },
+        "dynamique": {
+          "title": "Dynamic price",
+          "description": "The price changes every hour and comes from another entity (your supplier's integration, EPEX Spot, Nord Pool…). €/MWh and c€/kWh are converted automatically. If the entity publishes upcoming prices, they are used for forecasts.",
+          "data": {
+            "dyn_source": "Price entity",
+            "dyn_majoration": "Amount added to the price (optional)"
+          },
+          "data_description": {
+            "dyn_majoration": "If the source only gives the market price, add grid fees and taxes here in €/kWh to get the price you actually pay."
+          }
+        },
+        "abonnements": {
+          "title": "Monthly standing charge",
+          "description": "Standing charge of this offer for each subscribed power you want to compare (€ per month). Leave empty the powers you are not interested in.",
+          "data": {
+            "abo_3": "3 kVA",
+            "abo_6": "6 kVA",
+            "abo_9": "9 kVA",
+            "abo_12": "12 kVA",
+            "abo_15": "15 kVA",
+            "abo_18": "18 kVA",
+            "abo_24": "24 kVA",
+            "abo_30": "30 kVA",
+            "abo_36": "36 kVA"
+          }
+        }
+      },
+      "error": {
+        "plages_invalides": "Unreadable time range. Expected format: 23:00-06:00, several ranges separated by commas.",
+        "prix_manquant": "Enter the matching price.",
+        "mois_manquants": "Tick at least one winter month.",
+        "nom_identique": "Choose a name different from the first kind of day.",
+        "compteur_requis": "Pick a meter: the instalment and balance are calculated from consumption.",
+        "abonnement_manquant": "Enter the standing charge for at least one power."
+      },
+      "abort": {
+        "reconfigure_successful": "Offer updated."
+      }
     }
   }
 }

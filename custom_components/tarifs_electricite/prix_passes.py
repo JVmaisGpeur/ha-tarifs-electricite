@@ -23,7 +23,7 @@ MAX_JOURS = 366
 # Réglages qui ne sont pas des prix : leur changement n'est pas une modification de grille
 CLES_HORS_GRILLE = {
     "suivi", "compteur", "mode_paiement", "frequence_mois", "mensualite_fournisseur",
-    "prelevements_par_an", "date_debut_facturation",
+    "prelevements_par_an", "date_debut_facturation", "puissance_compteur", "triphase", "depassements_toleres",
 }
 
 

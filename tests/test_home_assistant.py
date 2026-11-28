@@ -184,3 +184,49 @@ async def test_assistant_tempo(hass: HomeAssistant) -> None:
         assert f"{entry.entry_id}_tempo_aujourdhui" in ents, sorted(ents)
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+
+
+async def test_offre_a_comparer_et_puissance(hass: HomeAssistant) -> None:
+    """v1.3.0 : sous-entrée « offre », capteurs du comparatif, puissance au compteur, service."""
+    await _compteur_fictif(hass)
+    hass.states.async_set("sensor.puissance_test", "1500", {
+        "device_class": "power", "state_class": "measurement", "unit_of_measurement": "W"})
+    entry = await _assistant_hphc(hass)
+    await hass.async_block_till_done()
+    ents = _entites(hass, entry)
+    assert not any(u.endswith(("_meilleure_offre", "_puissance_conseillee")) for u in ents)  # rien sans offre
+
+    sub = hass.config_entries.subentries
+    r = _ecran(await sub.async_init((entry.entry_id, "offre"), context={"source": config_entries.SOURCE_USER}), "user")
+    r = _ecran(await sub.async_configure(r["flow_id"], {"modele": "personnalise"}), "contrat")
+    r = _ecran(await sub.async_configure(r["flow_id"], {"fournisseur": "Autre", "offre": "Base", "type_offre": "base"}), "prix_base")
+    r = _ecran(await sub.async_configure(r["flow_id"], {"prix_base": 0.2516}), "calendrier")
+    r = _ecran(await sub.async_configure(r["flow_id"], {
+        "weekend": "identique", "feries": "identique", "alsace_moselle": False,
+        "saisons": False, "jours_speciaux": False}), "abonnements")
+    r = await sub.async_configure(r["flow_id"], {"abo_3": 9.5, "abo_6": 12.4})
+    assert r["type"] is FlowResultType.CREATE_ENTRY, r
+    await hass.async_block_till_done()
+    entry = hass.config_entries.async_get_entry(entry.entry_id)
+    assert len(entry.subentries) == 1 and entry.state is config_entries.ConfigEntryState.LOADED
+    ents = _entites(hass, entry)
+    assert f"{entry.entry_id}_meilleure_offre" in ents and f"{entry.entry_id}_economie_possible" in ents, sorted(ents)
+
+    # Puissance au compteur : Configurer → Suivi
+    opts = hass.config_entries.options
+    r = await opts.async_init(entry.entry_id)
+    r = _ecran(await opts.async_configure(r["flow_id"], {"next_step_id": "suivi"}), "suivi")
+    r = _ecran(await opts.async_configure(r["flow_id"], {
+        "compteur": "sensor.compteur_test", "mode_paiement": "mensualites",
+        "puissance_compteur": ["sensor.puissance_test"], "triphase": False, "depassements_toleres": 10}),
+        "paiement_mensualites")
+    r = await opts.async_configure(r["flow_id"], {"mensualite_fournisseur": 80, "prelevements_par_an": "12"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY, r
+    await hass.async_block_till_done()
+    entry = hass.config_entries.async_get_entry(entry.entry_id)
+    assert entry.options["suivi"]["puissance_compteur"] == ["sensor.puissance_test"]
+    assert f"{entry.entry_id}_puissance_conseillee" in _entites(hass, entry)
+
+    rep = await hass.services.async_call(DOMAIN, "comparer_offres", {
+        "debut": "2026-10-01 00:00:00", "fin": "2026-11-01 00:00:00"}, blocking=True, return_response=True)
+    assert rep["version_interface"] == 1 and "lignes" in rep

@@ -46,7 +46,9 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 SUIVI_CLES = ("compteur", "mode_paiement", "frequence_mois", "mensualite_fournisseur",
-              "prelevements_par_an", "date_debut_facturation")
+              "prelevements_par_an", "date_debut_facturation",
+              # v1.3.0 : puissance au compteur, raccordement, dépassements tolérés
+              "puissance_compteur", "triphase", "depassements_toleres")
 
 
 def lire_reglages_suivi(data: dict, options: dict) -> dict:

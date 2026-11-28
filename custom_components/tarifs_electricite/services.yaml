@@ -36,3 +36,18 @@ prix_passes:
       required: true
       selector:
         datetime:
+comparer_offres:
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: tarifs_electricite
+    debut:
+      required: true
+      selector:
+        datetime:
+    fin:
+      required: true
+      selector:
+        datetime:

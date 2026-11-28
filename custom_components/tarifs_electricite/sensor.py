@@ -45,6 +45,11 @@ async def async_setup_entry(
             entites += [CapteurFacture(g, "facture_en_cours", "montant_actuel"),
                         CapteurFacture(g, "facture_estimee", "montant_estime"),
                         CapteurProchaineFacture(g)]
+    # v1.3.0 : seulement avec des offres à comparer, ou un capteur de puissance au compteur
+    if g.comparateur.a_offres and g.suivi:
+        entites += [CapteurMeilleureOffre(g), CapteurEconomiePossible(g)]
+    if g.comparateur.a_puissance:
+        entites.append(CapteurPuissanceConseillee(g))
     if g.tempo:
         entites += [
             CapteurCouleurTempo(g, "tempo_aujourdhui"),
@@ -402,3 +407,86 @@ class CapteurPuissanceSouscrite(EntiteTarif, SensorEntity):
     @property
     def native_value(self):
         return self.g.puissance_kva
+
+
+# ------------------------------------------------------------------ v1.3.0 : comparer
+class CapteurMeilleureOffre(EntiteTarif, SensorEntity):
+    """Offre et puissance les moins chères sur 12 mois, avec le tableau complet en attribut."""
+
+    _attr_icon = "mdi:podium-gold"
+    _unrecorded_attributes = frozenset({"comparatif"})
+
+    def __init__(self, g) -> None:
+        super().__init__(g, "meilleure_offre", "sensor")
+
+    @property
+    def _comp(self) -> dict:
+        return self.g.etat.get("comparatif") or {}
+
+    @property
+    def native_value(self):
+        m = self._comp.get("meilleure")
+        if not m:
+            return None
+        return f"{m['offre']} {m['kva']} kVA" if m.get("kva") else m["offre"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        c = self._comp
+        return {
+            "comparatif": c.get("lignes", []),
+            "jours_de_donnees": c.get("jours_de_donnees"),
+            "extrapole": c.get("extrapole"),
+            "estime": c.get("estime"),
+            "etat": c.get("etat"),
+        }
+
+
+class CapteurEconomiePossible(EntiteTarif, SensorEntity):
+    """Écart sur un an entre le contrat actuel et la meilleure offre (0 si c'est déjà le meilleur)."""
+
+    _attr_native_unit_of_measurement = "EUR"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_suggested_display_precision = 0
+    _attr_icon = "mdi:piggy-bank-outline"
+
+    def __init__(self, g) -> None:
+        super().__init__(g, "economie_possible", "sensor")
+
+    @property
+    def native_value(self):
+        return (self.g.etat.get("comparatif") or {}).get("economie_possible")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        c = self.g.etat.get("comparatif") or {}
+        m = c.get("meilleure") or {}
+        return {"meilleure_offre": m.get("offre"), "kva": m.get("kva"),
+                "extrapole": c.get("extrapole"), "estime": c.get("estime")}
+
+
+class CapteurPuissanceConseillee(EntiteTarif, SensorEntity):
+    """Plus petite puissance souscrite sans dépassement sur 12 mois."""
+
+    _attr_native_unit_of_measurement = "kVA"
+    _attr_icon = "mdi:gauge"
+
+    def __init__(self, g) -> None:
+        super().__init__(g, "puissance_conseillee", "sensor")
+
+    @property
+    def native_value(self):
+        return (self.g.etat.get("puissance") or {}).get("conseillee")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        p = self.g.etat.get("puissance") or {}
+        return {
+            "heures_depassement": p.get("heures_depassement"),
+            "possible_avec_ecretage": p.get("possible_avec_ecretage"),
+            "pointe": p.get("pointe"),
+            "par_phase": p.get("par_phase"),
+            "avertissement_phase": p.get("avertissement_phase"),
+            "depassements_toleres": p.get("tolerance"),
+            "puissance_actuelle": self.g.puissance_kva,
+        }

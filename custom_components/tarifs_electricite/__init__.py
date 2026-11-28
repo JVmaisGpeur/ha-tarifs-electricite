@@ -39,6 +39,7 @@ from .const import (
     DOMAIN,
     HORIZON_PREVISIONS_H,
     NORMAL,
+    SERVICE_COMPARER,
     SERVICE_PREVISIONS,
     SERVICE_PRIX_PASSES,
     SIGNAL_MAJ,
@@ -67,6 +68,7 @@ from .prix_passes import (
     prix_revente_de,
     signatures,
 )
+from .comparaison_ha import Comparateur
 from .suivi_ha import SuiviConsommation, lire_reglages_suivi
 from .tempo import TempoClient
 
@@ -80,6 +82,14 @@ SCHEMA_PREVISIONS = vol.Schema(
         vol.Optional("config_entry_id"): cv.string,
         vol.Optional("heures", default=24): vol.All(vol.Coerce(int), vol.Range(min=1, max=72)),
         vol.Optional("duree"): vol.All(vol.Coerce(float), vol.Range(min=0.25, max=48)),
+    }
+)
+
+SCHEMA_COMPARER = vol.Schema(
+    {
+        vol.Optional("config_entry_id"): cv.string,
+        vol.Required("debut"): cv.datetime,
+        vol.Required("fin"): cv.datetime,
     }
 )
 
@@ -124,6 +134,9 @@ class GestionnaireTarif:
         self.suivi: Optional[SuiviConsommation] = (
             SuiviConsommation(self, reglages) if reglages.get("compteur") else None
         )
+        # v1.3.0 : offres à comparer et puissance conseillée
+        self.suivi_reglages = reglages
+        self.comparateur = Comparateur(self)
         # Prix dynamique
         self._serie_dyn: list = []
         self._dyn_etat: Optional[float] = None
@@ -276,6 +289,7 @@ class GestionnaireTarif:
         self._recalculer()
         if self.suivi:
             await self.suivi.async_demarrer()
+        await self.comparateur.async_demarrer()
 
     def _sauver_journal(self) -> None:
         # On ne garde que deux ans
@@ -296,6 +310,7 @@ class GestionnaireTarif:
     def arreter(self) -> None:
         if self.suivi:
             self.suivi.arreter()
+        self.comparateur.arreter()
         for annuler in self._annuler:
             annuler()
         self._annuler.clear()
@@ -479,6 +494,7 @@ class GestionnaireTarif:
             etat["previsions_disponibles"] = bool(self._serie_dyn)
         if self.suivi:
             etat["suivi"] = self.suivi.resultat
+        etat.update(self.comparateur.etat())
         if self.tempo:
             for j, c in self.tempo.confirmees.items():
                 if j <= maintenant.date() and self.journal["tempo"].get(j.isoformat()) != c:
@@ -561,6 +577,30 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         SERVICE_PRIX_PASSES,
         _service_prix_passes,
         schema=SCHEMA_PRIX_PASSES,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    async def _service_comparer(call: ServiceCall) -> ServiceResponse:
+        """v1.3.0 : ce que chaque offre saisie aurait coûté sur la période donnée."""
+        g = _gestionnaire(hass, call.data.get("config_entry_id"))
+        debut, fin = _local(call.data["debut"]), _local(call.data["fin"])
+        if fin <= debut or fin - debut > timedelta(days=MAX_JOURS):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="periode_invalide",
+                translation_placeholders={"jours": str(MAX_JOURS)},
+            )
+        if g.suivi is None:
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="suivi_requis")
+        rep = await g.comparateur.async_comparer(debut, fin, annuel=False)
+        rep["version_interface"] = VERSION_INTERFACE
+        return rep
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_COMPARER,
+        _service_comparer,
+        schema=SCHEMA_COMPARER,
         supports_response=SupportsResponse.ONLY,
     )
     return True

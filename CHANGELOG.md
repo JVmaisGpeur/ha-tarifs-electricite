@@ -1,5 +1,23 @@
 # Journal des modifications
 
+## 1.3.0
+
+### Interface
+Ajouts compatibles : la **version d'interface reste 1**.
+- Nouveaux capteurs `meilleure_offre` (texte) et `economie_possible` (EUR/an), seulement avec des offres à comparer ; `puissance_conseillee` (kVA), seulement avec un capteur de puissance au compteur.
+- Nouveau service `comparer_offres` (réponse uniquement) : ce que chaque offre saisie aurait coûté sur une période (au plus 366 jours).
+
+### Nouveautés
+- **Offres à comparer** : sur la page de l'intégration, « Ajouter une offre à comparer ». Mêmes écrans et modèles que le contrat, puis l'abonnement mensuel de chaque puissance (3 à 36 kVA). Ce sont des sous-entrées du contrat : aucune entité de prix, aucun effet sur `prix_actuel` ni `previsions`.
+- **Comparaison sur 12 mois réels** : consommation heure par heure du compteur du suivi, aux prix de chaque offre, abonnement compris ; écart avec le contrat actuel ; Tempo aux couleurs réelles (sinon couleur probable, « estimé ») ; prix dynamique aux moyennes horaires enregistrées (sinon « données insuffisantes ») ; moins de 12 mois de données : « extrapolé ». Recalcul chaque nuit et à chaque modification.
+- **Puissance conseillée** : Configurer → Suivi, « Puissance au compteur » (un capteur, ou trois en triphasé), raccordement, « Dépassements tolérés » (10 h/an par défaut). Heures de dépassement de chaque puissance, plus forte pointe, puissance « possible avec un écrêtage ou un délestage ».
+- **Carte** : onglet « Comparer » (tableau des offres de la moins chère à la plus chère, contrat actuel en surbrillance, économie possible, bloc Puissance), avec un bouton « i » sur chaque partie.
+
+### Prérequis
+- Home Assistant 2025.3 ou plus récent (sous-entrées de configuration).
+
+### Sans changement pour les installations existantes
+Sans offre à comparer ni capteur de puissance : aucune entité nouvelle, rien ne change.
 ## 1.2.0
 
 ### Interface
