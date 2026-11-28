@@ -135,8 +135,9 @@ def _champs_suivi() -> list:
         ("mode_paiement", MODE_PAIEMENT, True, "mensualites"),
         # v1.3.0 : puissance conseillée
         ("puissance_compteur", ENTITE_PUISSANCE, False, None),
-        ("triphase", OUI_NON, True, False),
-        ("depassements_toleres", HEURES_AN, True, TOLERANCE_DEFAUT),
+        # facultatifs : sans eux, monophasé et 10 heures tolérées (valeurs du calcul)
+        ("triphase", OUI_NON, False, False),
+        ("depassements_toleres", HEURES_AN, False, TOLERANCE_DEFAUT),
     ]
 
 
