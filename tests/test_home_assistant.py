@@ -6,6 +6,7 @@ Ignoré si Home Assistant et pytest-homeassistant-custom-component ne sont pas i
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -26,7 +27,7 @@ REPO_COMPONENTS = str(Path(__file__).resolve().parent.parent / "custom_component
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(recorder_mock, enable_custom_integrations, hass):
+def auto_enable_custom_integrations(caplog, recorder_mock, enable_custom_integrations, hass):
     """L'historique (recorder) doit être prêt avant Home Assistant.
 
     L'outil de test charge son propre paquet custom_components : on y ajoute le nôtre.
@@ -38,6 +39,13 @@ def auto_enable_custom_integrations(recorder_mock, enable_custom_integrations, h
         custom_components.__path__.append(REPO_COMPONENTS)
     hass.data.pop(loader.DATA_CUSTOM_COMPONENTS, None)
     yield
+    _aucune_erreur(caplog)
+
+def _aucune_erreur(caplog) -> None:
+    """Une erreur consignée (même attrapée) fait échouer le test."""
+    erreurs = [f"{r.name}: {r.getMessage()}" for r in caplog.get_records("call") if r.levelno >= logging.ERROR]
+    assert not erreurs, erreurs
+
 
 
 def _ecran(r, step_id: str | None = None):
